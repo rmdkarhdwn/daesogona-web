@@ -1,14 +1,16 @@
-# 대소고나 프론트엔드
+# 대소고나 웹
 
 생활 기록과 중요한 선택을 중심으로 학교생활을 진행합니다. 기존 게임 기획서 v1.2의 `/api/v1`에 생활 기록 조회를 추가했습니다. React와 TypeScript를 사용합니다. Zustand는 화면 상태와 마지막 회차 ID를 관리하고 TanStack Query는 서버 조회·변경과 갱신을 담당합니다.
 
-## 이 저장소에서의 연결 상태
+## 원본과 연결 상태
 
-이 폴더는 별도로 개발하던 웹 프로젝트를 가져온 것입니다. 서버 없이 실행하는 데모가 포함되어 있습니다. 기존 `com.silvally` 서버와의 완전한 통합은 별도 작업입니다. API 주소만 바꾸어 모든 기능이 호환된다고 보장하지 않습니다.
+이 저장소는 [팀 silvally 저장소](https://github.com/shawnatak926/silvally)의 `frontend/`를 웹 전용으로 분리한 개인 공개 저장소입니다. 원본 기준은 [PR #36 충돌 해결 커밋 38e5ddf](https://github.com/shawnatak926/silvally/commit/38e5ddf6d0cb6992b1f29e63b70d6760cb87a181)이며 웹 변경 이력을 보존했습니다. 이후 두 저장소의 변경이 자동으로 동기화되는 구조는 아닙니다.
+
+서버 없이 실행하는 데모가 포함되어 있습니다. 기존 `com.silvally` 서버와의 완전한 통합은 [서버 후속 이슈 #35](https://github.com/shawnatak926/silvally/issues/35)에서 추적합니다. API 주소만 바꾸어 모든 기능이 호환된다고 보장하지 않습니다.
 
 웹이 기대하는 응답 구조는 `src/api/contracts.ts`, 호출 목록은 `src/api/hooks.ts`에서 확인할 수 있습니다. 팀 서버와 연결할 때 생활 기록 조회, 학기 집중·방학·나르샤·스트레스 이벤트, `ProgressView`의 필드명과 확장 정보를 대조해야 합니다. 이번 변경은 Java 서버나 DB를 수정하지 않습니다.
 
-아래 명령은 이 `frontend/` 폴더에서 실행합니다. 저장소 루트에서는 먼저 `cd frontend`를 실행합니다.
+아래 명령은 이 개인 저장소의 **루트 폴더**에서 실행합니다. 웹 소스가 루트에 있으므로 `cd frontend`는 하지 않습니다.
 
 ## 순한맛과 매운맛
 
@@ -29,7 +31,7 @@ npm run build:spicy
 
 ## 1차 배포: Vercel 순한맛
 
-Vercel에서 `shawnatak926/silvally` 저장소를 가져오고 **Root Directory를 `frontend`**로 지정합니다. 이 폴더의 `vercel.json`이 다음 값을 적용합니다.
+Vercel에서 `rmdkarhdwn/daesogona-web` 저장소를 가져오고 **Root Directory는 비워 두어 저장소 루트**를 사용합니다. 루트의 `vercel.json`이 다음 값을 적용합니다.
 
 - Framework: Vite
 - Install Command: `npm ci`
@@ -43,7 +45,7 @@ Vercel은 이 프론트엔드를 배포하며 Spring Boot 서버는 별도로 �
 
 `/play/:id`, `/ending/:id`는 `index.html`로 연결해 직접 접속·새로고침을 처리합니다. `/api`나 PDF·사진 경로를 SPA로 바꾸지 않습니다. 이 설정은 Spring API 프록시가 아니며, 브라우저는 `VITE_API_BASE_URL`로 직접 요청합니다. 실제 서버 주소가 아직 확정되지 않았으므로 특정 서버 URL을 코드에 고정하지 않았습니다.
 
-현재 API 계약 통합은 #32, 모드 저장·순한맛 규칙은 #30, 웹은 이 PR(#29)에 나뉘어 있습니다. 서버에 필요한 변경을 반영하고 API 계약을 맞춘 뒤 배포된 주소에서 회차 생성→희망 직무→턴 진행→새로고침→졸업을 확인해야 합니다. 프론트 빌드 성공만으로 온라인 게임이 완성된 것으로 표시하지 않습니다.
+팀 서버의 API 계약·모드·웹 기본 구현은 팀 저장소에 반영되어 있습니다. 실제 서버 연결은 [#35](https://github.com/shawnatak926/silvally/issues/35)를 따라 검증해야 합니다. 이 개인 저장소에는 Java 서버나 AI 키를 포함하지 않습니다. API 계약을 맞춘 뒤 배포된 주소에서 회차 생성→희망 직무→턴 진행→새로고침→졸업을 확인해야 합니다. 프론트 빌드 성공만으로 온라인 게임이 완성된 것으로 표시하지 않습니다.
 
 공식 설정 근거: [Vercel의 Vite SPA 안내](https://vercel.com/docs/frameworks/frontend/vite#using-vite-to-make-spas), [vercel.json 설정](https://vercel.com/docs/project-configuration/vercel-json).
 

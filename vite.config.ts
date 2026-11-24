@@ -11,8 +11,9 @@ export default defineConfig(async ({ mode, command }) => {
       throw new Error('Vercel 환경변수 VITE_API_BASE_URL에 배포된 HTTPS Spring 서버 주소를 /api/v1까지 입력해 주세요.')
     }
   }
+  const edition = command === 'serve' && mode === 'demo' ? undefined : mode === 'spicy' ? 'SPICY' : 'MILD'
   return {
-    define: { 'import.meta.env.VITE_GAME_EDITION': JSON.stringify(mode === 'mild' || mode === 'spicy' ? mode.toUpperCase() : undefined) },
+    define: { 'import.meta.env.VITE_GAME_EDITION': JSON.stringify(edition) },
     build: { outDir: mode === 'mild' || mode === 'spicy' ? `dist/${mode}` : 'dist', emptyOutDir: true },
     plugins: [react(), ...(mode === 'demo' ? [(await import('./demo/plugin.ts')).demoApi(Boolean(env.DAESOGO_FIXTURE_SEED))] : [])],
     server: {

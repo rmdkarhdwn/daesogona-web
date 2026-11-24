@@ -7,7 +7,7 @@ import {
 } from '../api/contracts'
 import { usePlayerData } from '../api/hooks'
 import { AssessmentResults } from './assessments'
-import { admissionProtection, label } from './labels'
+import { admissionProtection, jobLabel, label } from './labels'
 import { fieldLearningDetail, fieldLearningRoutes, fieldLearningStatusLabel } from './field-learning'
 import { careerCatalogPath, type RunPlayer } from './activities'
 import { NarshaRecord } from './school-life'
@@ -39,7 +39,7 @@ export function Notebook({ player, busy, run }: { player: PlayerView; busy: bool
   return (
     <>
       <p className="record-line"><strong>{player.name}</strong> · {label(player.admissionTrack)} · {label(player.major)} · {label(player.track)}</p>
-      <p className="muted">최초 희망 · {label(player.initialCareerCode)}<br />현재 희망 · {label(player.currentCareerCode)}</p>
+      <p className="muted">최초 희망 · {jobLabel(player.initialCareerCode)}<br />현재 희망 · {jobLabel(player.currentCareerCode)}</p>
       <h3>능력치</h3><StatList values={player.stats} />
       <h3>가방</h3>
       {inventory.isPending ? <Loading /> : inventory.error ? <Problem error={inventory.error} retry={() => { void inventory.refetch() }} /> :
@@ -56,7 +56,7 @@ export function Notebook({ player, busy, run }: { player: PlayerView; busy: bool
           <p className="muted">자격증 · {progress.data.qualifications.map(qualificationName).join(', ') || '아직 없음'}</p>
           <FieldLearningRecord route={progress.data.fieldLearningRoute} experience={progress.data.fieldLearning} />
           {progress.data.narshaProjects?.length ? progress.data.narshaProjects.map((record, i) =>
-            <NarshaRecord key={record.schoolYear ?? i} record={record} />) : <NarshaRecord record={progress.data.narsha} />}
+            <NarshaRecord key={'year' in record ? record.year : record.schoolYear ?? i} record={record} />) : <NarshaRecord record={progress.data.narsha} />}
           {progress.data.projects.map((project) => <p className="record-line" key={project.id}>{label(project.projectCode)} · {label(project.status)}</p>)}
         </>
       )}

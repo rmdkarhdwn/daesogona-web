@@ -50,10 +50,10 @@ for (const width of [360, 1280]) {
     await expect(choices.getByText('이 사건의 시기, 선택지, 보상은 게임 설정입니다.')).toBeVisible()
     await choices.screenshot({ path: `/tmp/daesogo-school-2027/school-choice-${width}.png` })
     await choices.getByRole('button', { name: '내일 계획을 줄여 실행 가능하게 만들기', exact: true }).click()
-    await expect(page.locator('#current-story').getByRole('heading', { name: '뉴로우-S · 오늘의 회고', exact: true })).toBeVisible()
+    await expect(page.locator('#current-story summary').getByText('내일 계획을 줄여 실행 가능하게 만들기', { exact: true })).toBeVisible()
     expect(game.view.stats.S).toBe(15)
     await page.reload()
-    await expect(page.locator('#current-story').getByRole('heading', { name: '뉴로우-S · 오늘의 회고', exact: true })).toBeVisible()
+    await expect(page.locator('#current-story summary').getByText('내일 계획을 줄여 실행 가능하게 만들기', { exact: true })).toBeVisible()
     await page.getByText('학교생활 근거 자료', { exact: false }).click()
     await expect(page.getByText(/자료별|홈페이지 탑재 자료는 미국 실리콘밸리/).first()).toBeVisible()
     const pdf = await request.get('/school-sources/admissions-2027.pdf')
@@ -64,3 +64,28 @@ for (const width of [360, 1280]) {
     await page.screenshot({ path: `/tmp/daesogo-school-2027/school-life-${width}.png`, fullPage: true })
   })
 }
+
+test('첫 학기 협업 선택이 친구와의 다음 실습으로 이어지고 혼자 쉰 회차에는 열리지 않는다', () => {
+  for (const help of [true, false]) {
+    const game = createGame({ name: '첫 실습', edition: 'MILD' }, true)
+    Object.assign(game.view, { phase: 'Y1', year: 1, turn: 2,
+      semesterFocus: { code: 'FOCUS_TEAM', label: '팀 프로젝트와 협업', semester: 1 } })
+    game.view.stats.S = 20
+    const first = events(game)[0]
+    expect(first.code).toBe('DAILY_FRIEND')
+    execute(game, '/events/DAILY_FRIEND/choices', { choiceCode: help ? 'FRIEND_HELP' : 'FRIEND_ALONE' })
+    execute(game, '/turns/advance', {})
+    const followUp = events(game).find(event => event.code === 'DAILY_TEST_CASE')
+    if (help) {
+      expect(followUp?.required).toBe(false)
+      const path = '/events/DAILY_TEST_CASE/choices'
+      execute(game, path, { choiceCode: 'TEST_TOGETHER' })
+      const entries: StoryEntry[] = []
+      appendDemoStory(game, entries, path)
+      expect(entries[0].text).toContain('그 칸에 동그라미')
+      expect(events(game)).not.toContainEqual(followUp)
+    } else {
+      expect(followUp).toBeUndefined()
+    }
+  }
+})

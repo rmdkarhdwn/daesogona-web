@@ -81,6 +81,7 @@ test('모바일에서 장소와 전공 체험을 두 가지씩 선택하고 각�
   await expect(choiceHeading(page, '기초 프로그래밍')).toBeVisible()
   await expect(panel.getByRole('radio')).toHaveCount(6)
   await page.reload()
+  for (const summary of await page.locator('#current-story summary').all()) await summary.click()
   for (const title of ['비포스쿨 첫날 · 메이커실 둘러보기', '비포스쿨 첫날 · 강당 둘러보기',
     '전공 체험 · 급식 메뉴 API 만들기', '전공 체험 · 미니게임 조작 만들기']) {
     await expect(journal.getByText(title, { exact: true })).toBeVisible()
@@ -228,7 +229,9 @@ test('집중 목표를 유지하며 진행하고 캠프는 방학 안에서만 �
   await expect(page.getByText('2학기 · 1/12턴')).toBeVisible()
   await setFocus(page, '영어와 글로벌 진로')
   const journal = page.getByRole('list', { name: '이전 장면' })
-  await expect(journal.getByRole('heading', { name: '여름방학 · 전공강화캠프 수료' })).toBeVisible()
+  const camp = page.locator('#current-story details').filter({ hasText: '여름방학 · 전공강화캠프 수료' })
+  await camp.locator('summary').click()
+  await expect(camp.getByRole('heading', { name: '여름방학 · 전공강화캠프 수료' })).toBeVisible()
   await expect(journal.getByRole('list', { name: '학교 평가 결과' }).filter({ hasText: '1학기 기말고사' })).toHaveCount(1)
   await expect(page.getByRole('list', { name: '스트레스 변화 이유' }).filter({ hasText: '중간고사' }).first()).toContainText('스트레스 +')
 })
@@ -278,10 +281,11 @@ test('작성 중인 장면을 보여주고 새 장면이 도착해도 입학 선
   await page.getByLabel('이름').fill('입학생')
   await page.getByRole('radio', { name: '매운맛', exact: true }).check()
   await page.getByRole('button', { name: '지원 시작' }).click()
-  await expect(page.getByText('교문 너머에 학교가 보인다.')).toBeVisible()
+  await expect(page.locator('#current-story summary').getByText('교문 너머에 학교가 보인다.')).toBeVisible()
   await page.getByRole('radio', { name: '일반전형' }).check()
   ready = true
-  await expect(page.getByText('담장 너머로 실습실의 불이 보인다.')).toBeVisible()
+  await expect(page.locator('#current-story summary').getByText('담장 너머로 실습실의 불이 보인다.')).toBeVisible()
+  await page.locator('#current-story summary').click()
   await expect(page.getByText('들어와도 좋아요.')).toBeVisible()
   await expect(page.getByRole('radio', { name: '일반전형' })).toBeChecked()
 })

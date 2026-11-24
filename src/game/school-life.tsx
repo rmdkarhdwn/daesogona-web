@@ -1,4 +1,4 @@
-import type { NarshaView, SchoolLifeCatalogEntry, SchoolLifeSource } from '../api/contracts'
+import type { NarshaView, SchoolNarshaProject, SchoolLifeCatalogEntry, SchoolLifeSource } from '../api/contracts'
 import { usePlayerData } from '../api/hooks'
 
 const narshaStages: Record<NarshaView['status'], string> = {
@@ -48,8 +48,20 @@ export function SchoolLifeCatalog({ playerId }: { playerId: string }) {
   )
 }
 
-export function NarshaRecord({ record }: { record?: NarshaView | null }) {
+export function NarshaRecord({ record }: { record?: NarshaView | SchoolNarshaProject | null }) {
   if (!record) return null
+  if ('year' in record) {
+    const stages = { IN_PROGRESS: '기획·개발 중', WRAPPED: '프로젝트 완료', RANKED: '순위 발표' }
+    return <div className="narsha-record">
+      <div className="narsha-record-heading"><strong>{record.year}학년 나르샤</strong><span>{stages[record.status]}</span></div>
+      <dl>
+        <div><dt>주제</dt><dd>{record.topic}</dd></div>
+        {record.quality != null && <div><dt>완성도</dt><dd>{record.quality}점</dd></div>}
+        {record.rank != null && <div><dt>순위</dt><dd>{record.rank}위</dd></div>}
+        {record.exhibited && <div><dt>전시</dt><dd>소프트웨이브 참가</dd></div>}
+      </dl>
+    </div>
+  }
   return (
     <div className="narsha-record">
       <div className="narsha-record-heading"><strong>{record.schoolYear ? `${record.schoolYear}학년 나르샤` : '나르샤 프로젝트'}</strong><span>{narshaStages[record.status]}</span></div>

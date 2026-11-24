@@ -75,9 +75,9 @@ const labels: Record<string, string> = {
 
 export const label = (code?: string | null) => code ? labels[code] ?? code : '미정'
 export const actionLabel = (code: string) => code === 'SOCIAL' ? '친구와 교류' : label(code)
-export const jobLabel = (role: string) => ({
-  FE: '프론트엔드', BE: '백엔드', AI: '인공지능 개발자', SW: '소프트웨어 개발', MOBILE: '모바일 개발', GAME: '게임 개발',
-})[role] ?? role
+export const jobLabel = (role?: string | null) => role ? ({
+  FE: '프론트엔드', BE: '백엔드', AI: '인공지능 개발자', SW: '소프트웨어 개발', DESIGN: 'UI/UX 디자인', MOBILE: '모바일 개발', GAME: '게임 개발',
+})[role] ?? label(role) : '미정'
 
 export function schoolPeriod(player: PlayerView) {
   const months = [3, 4, 4, 5, 6, 7, 8, 9, 9, 10, 11, 12]

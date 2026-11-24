@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { editionName } from './editions'
+import { yearTurns } from './schedule'
+import { editionName, lockedEdition } from './editions'
 import photo from '../assets/campus-photo.png'
 import { ApiError } from '../api/client'
 import { isSchool, type AdmissionProtection, type CalendarPeriod, type InterviewEvaluation, type MutationResult, type PlayerView, type Stat, type Stats } from '../api/contracts'
@@ -42,7 +43,7 @@ export function Frame({
   player, children, timeControls, footer, saveStatus = '저장됨',
 }: { player?: PlayerView; children: ReactNode; timeControls?: ReactNode; footer?: ReactNode; saveStatus?: string }) {
   const id = player?.id ?? ''
-  const calendar = usePlayerData<CalendarPeriod[]>(id, 'catalog/calendar', Boolean(player && isSchool(player)),
+  const calendar = usePlayerData<CalendarPeriod[]>(id, 'catalog/calendar', Boolean(player && isSchool(player) && !player.school),
     `/catalog/calendar?playerId=${encodeURIComponent(id)}`)
   const currentPeriod = calendar.data?.find((period) => period.year === player?.year && period.turn === player?.turn)
   return (
@@ -54,11 +55,12 @@ export function Frame({
           <strong>대소고나</strong>
         </Link>
         {player && <div className="phase">
-          <strong>{phaseLabel(player)}</strong><span>{editionName(player.edition ?? 'SPICY')}</span>
+          <strong>{phaseLabel(player)}</strong>{!lockedEdition && <span>{editionName(player.edition ?? 'SPICY')}</span>}
           {player && isSchool(player) && <span title={currentPeriod?.theme}>{player.vacation ?
             `${player.vacation.season === 'SUMMER' ? '여름방학' : '겨울방학'}${player.vacation.campTurn ? ` · 캠프 ${player.vacation.campTurn}/2턴` : ''}` : currentPeriod
             ? `${currentPeriod.semester}학기 · ${currentPeriod.month}월` : schoolPeriod(player).label}</span>}
-          {player && <span className="save-status">{saveStatus}</span>}
+          <span className="save-status">{saveStatus}</span>
+          {isSchool(player) && <progress className="term-position" max={yearTurns} value={player.turn} aria-label="학년 내 현재 턴" />}
         </div>}
         {timeControls}
       </header>
@@ -161,6 +163,7 @@ export function Receipt({ receipt }: { receipt: MutationResult }) {
     <p className="receipt" role="status">
       {experience ? `${fieldLearningRoutes[experience.route].name} · ${fieldLearningStatusLabel(experience.status)}` :
         admission ? `${receipt.details?.passed ? '전형 통과' : '전형 탈락'} · ${receipt.details?.score}점 · ${receipt.details?.rank}위` :
+        receipt.actionCode.startsWith('DAILY_') ? '선택을 인생 기록에 남겼습니다.' :
         `${actionLabel(receipt.actionCode)} · ${receipt.resultCode === 'DONE' || receipt.resultCode === 'CHOICE_SAVED' ? '기록됨' : label(receipt.resultCode)}`}
       {experience && <small>{fieldLearningDetail(experience)}</small>}
       {admission && <small>{admissionComponents(Number(receipt.details?.stage), receipt.details?.components)}</small>}
@@ -174,6 +177,6 @@ export function Receipt({ receipt }: { receipt: MutationResult }) {
 
 export function StatList({ values }: { values: Stats }) {
   return <dl className="stats">{Object.entries(stats).filter(([code]) => typeof values[code as Stat] === 'number').map(([code, name]) => (
-    <div key={code}><dt>{name}</dt><dd><meter value={values[code as Stat]} min={0} max={100} aria-label={name} /><span>{values[code as Stat]}</span></dd></div>
+    <div key={code} data-stat={code}><dt>{name}</dt><dd><meter value={values[code as Stat]} min={0} max={100} aria-label={name} /><span>{values[code as Stat]}</span></dd></div>
   ))}</dl>
 }

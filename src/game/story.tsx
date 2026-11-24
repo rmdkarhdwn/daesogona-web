@@ -1,11 +1,9 @@
-import type { ReactNode } from 'react'
-import type { PlayerView, StoryEntry } from '../api/contracts'
+import type { StoryEntry } from '../api/contracts'
 import { AssessmentResults, StatSetbacks, StressPressure } from './assessments'
 
-export { DashboardLinks, SchoolRail, StudentRail } from './dashboard'
 
 function period(entry: StoryEntry) {
-  if (entry.year) return `${entry.year}학년 ${entry.turn}턴`
+  if (entry.year) return `${entry.year}학년 ${entry.turn <= 12 ? 1 : 2}학기 · ${entry.turn}턴`
   if (entry.beforeSchoolDay) return `비포스쿨 ${entry.beforeSchoolDay}일 차`
   return '입학 전형'
 }
@@ -24,20 +22,44 @@ function StoryText({ entry }: { entry: StoryEntry }) {
   )
 }
 
-export function CurrentStory({ player, entry, loading, failed, retry, children }: {
-  player: PlayerView; entry?: StoryEntry; loading: boolean; failed: boolean; retry: () => void; children?: ReactNode
+export function actionSummary(entry: StoryEntry) {
+  if (entry.actionSummary) return entry.actionSummary
+  const sources = entry.stressLoad?.sources ?? []
+  if (sources.length === 1 && sources[0].reason.endsWith('기')) return sources[0].reason
+  const exam = entry.assessments?.[0]?.title ?? sources
+    .map(source => ({ MIDTERM: '중간고사', FINAL: '기말고사', ASSESSMENT: '수행평가' })[source.code])
+    .find(Boolean)
+  if (exam) return exam.includes('수행평가') ? '수행평가 제출' : `${exam} 응시`
+
+  const text = entry.text.trim()
+  const body = text.startsWith(entry.title + '.') ? text.slice(entry.title.length + 1).trim() : text
+  const selected = body.match(/^수첩에 적었다\.\s*“(.+?)\.?”/u)
+  if (selected) return selected[1]
+  return body.split(/(?<=[.!?])\s|\n/u, 1)[0] || entry.title
+}
+
+export function CurrentStory({ entries, loading, failed, retry }: {
+  entries: StoryEntry[]; loading: boolean; failed: boolean; retry: () => void
 }) {
   return (
-    <article className="story-card current-story" id="current-story" aria-labelledby="current-story-title">
-      <p className="section-label">최근 로그</p>
-      {entry && <p className="story-kicker">{period(entry)}</p>}
-      <h2 id="current-story-title" aria-live="polite">{entry?.title ?? `${player.name}의 학교생활`}</h2>
-      {entry && <StoryText entry={entry} />}
-      {children}
-      {entry?.status === 'PENDING' && !failed && <p className="story-note" role="status">기록 작성 중</p>}
+    <section className="current-story" id="current-story" aria-labelledby="current-story-title">
+      <h2 className="section-label" id="current-story-title">최근 로그</h2>
+      {entries.map(entry => (
+        <details className="recent-entry" key={entry.id}>
+          <summary>
+            <span className="journal-period">{period(entry)}</span>
+            <span className="recent-action">{actionSummary(entry)}</span>
+          </summary>
+          <div className="recent-detail">
+            <h3>{entry.title}</h3>
+            <StoryText entry={entry} />
+            {entry.status === 'PENDING' && !failed && <p role="status">기록 작성 중</p>}
+          </div>
+        </details>
+      ))}
       {failed && <div className="story-note story-retry"><p>이야기를 불러오지 못했습니다.</p><button className="btn" type="button" onClick={retry}>이야기 다시 불러오기</button></div>}
-      {!entry && !failed && <p className="story-note">{loading ? '이야기를 불러오고 있습니다.' : '게임을 진행하면 이곳에 장면이 기록됩니다.'}</p>}
-    </article>
+      {!entries.length && !failed && <p className="story-note">{loading ? '기록을 불러오는 중…' : '아직 기록이 없습니다.'}</p>}
+    </section>
   )
 }
 

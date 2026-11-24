@@ -15,7 +15,7 @@ import {
 import { advanceFieldLearning, fieldLearningEnding, fieldLearningSummary, selectFieldLearning } from './field-learning.ts'
 import { companyQuestion, gradeInterview, schoolQuestion } from './interview.ts'
 import { eventRandom } from './random.ts'
-import { schoolActivityEvents } from './school-life.ts'
+import { choiceOutcome, schoolActivityEvents, schoolFollowUp } from './school-life.ts'
 import { evaluateAssessments, prepareAssessment } from './assessments.ts'
 
 interface DemoProject extends Project { year: number; deadline: number; readings: number[] }
@@ -25,7 +25,7 @@ interface RoutineActivity { action: string; result: string; subject?: string }
 interface DemoHistory extends HistoryEntry {
   beforeSchoolActivities?: { title: string; description: string }[]
   stressEvent?: { choiceLabel: string; description?: string; resultCode: string; stress: number }
-  dailyEvent?: { title: string; choiceLabel: string; situation: string }
+  dailyEvent?: { title: string; choiceLabel: string; situation: string; outcome?: string }
   routine?: { friendContact: boolean; activities: RoutineActivity[]; statDelta: Partial<Stats> }
   fieldLearning?: FieldLearningExperience
   narsha?: NarshaView
@@ -203,7 +203,12 @@ function drawSchoolEvent(g: DemoGame) {
   const key = `daily:${year}-${turn}`
   if (g.dailyChoicePeriod === key) return undefined
   const random = eventRandom(g.view.id, key)
-  if (random.nextInt(100) >= 55) return undefined
+  const previous = (turn - 1) % semesterTurns !== 0 && g.history.find(entry =>
+    entry.year === year && entry.turn === turn - 1 && entry.dailyEvent)
+  const followUp = previous && schoolFollowUp(previous.subjectCode, previous.choiceCode)
+  if (followUp) return followUp
+  const firstLab = year === 1 && turn === 2 && g.view.semesterFocus
+  if (!firstLab && random.nextInt(100) >= 55) return undefined
   const pool = [...dailySchoolEvents, ...schoolActivityEvents(year, turn)]
   const period = (turn - 1) % semesterTurns + 1
   if ([4, 5, 8, 9, 11].includes(period)) pool.push(dailyExamEvent)
@@ -212,7 +217,9 @@ function drawSchoolEvent(g: DemoGame) {
     pool.push({ ...dailyNarshaEvent, situation: `‘${record.topicLabel}’ 팀이 남은 기능과 시연 범위를 두고 의견을 나눕니다.` })
   }
   const saved = g.eventDraws?.[key]
-  const selected = pool.find((event) => event.code === saved?.eventCode) ?? pool[random.nextInt(pool.length)]
+  const firstLabs: Record<string, string> = { FOCUS_TEAM: 'DAILY_FRIEND', FOCUS_BALANCE: 'DAILY_ROOMMATE' }
+  const firstEvent = firstLab && (firstLabs[firstLab.code] ?? 'DAILY_FEEDBACK')
+  const selected = pool.find(event => event.code === (saved?.eventCode ?? firstEvent)) ?? pool[random.nextInt(pool.length)]
   const ordered = saved?.choiceCodes.map((code) => selected.choices.find((choice) => choice.code === code))
     .filter((choice): choice is (typeof selected.choices)[number] => choice !== undefined)
   const drawn = { ...selected, choices: ordered?.length === selected.choices.length ? ordered : random.shuffled(selected.choices) }
@@ -557,7 +564,7 @@ function chooseEvent(g: DemoGame, code: string, choiceCode: string, customTopic?
   const entry = log(g, before, 'EVENT_CHOICE', code, resultCode, choiceCode)
   if (admissionResult) entry.admission = admissionResult
   if (stress) entry.stressEvent = stress
-  if (code.startsWith('DAILY_')) entry.dailyEvent = { title: event.title, choiceLabel: choice.label, situation: event.situation }
+  if (code.startsWith('DAILY_')) entry.dailyEvent = { title: event.title, choiceLabel: choice.label, situation: event.situation, outcome: choice.outcome ?? choiceOutcome(event.code, choice.code) }
   if (details?.narsha && g.narsha) entry.narsha = { ...g.narsha }
   if (isFocus) entry.semesterFocus = g.view.semesterFocus
   if (code === 'VACATION') entry.vacation = before.vacation

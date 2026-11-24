@@ -14,6 +14,7 @@ export interface PlayerView {
   phase: Phase
   year: number
   turn: number
+  school?: { semesterFocus: string | null; vacationPending: boolean; practiceRemaining: number }
   semesterFocus?: SemesterFocusView
   vacation?: VacationView
   remainingAp: number
@@ -81,6 +82,20 @@ export interface FieldLearningExperience {
   completedTurn?: number
 }
 
+export interface NarshaTopics {
+  topics: { code: string; title: string; summary: string }[]
+  customTopicRule: { topicCode: string; minLength: number; maxLength: number }
+}
+
+export interface SchoolNarshaProject {
+  year: number
+  topic: string
+  status: 'IN_PROGRESS' | 'WRAPPED' | 'RANKED'
+  rank?: number | null
+  quality?: number | null
+  exhibited: boolean
+}
+
 export interface NarshaView {
   schoolYear?: number
   topicCode: string
@@ -103,7 +118,7 @@ export interface ProgressView {
   fieldLearningRoute?: FieldLearningRoute | null
   fieldLearning?: FieldLearningExperience | null
   narsha?: NarshaView | null
-  narshaProjects?: NarshaView[]
+  narshaProjects?: (NarshaView | SchoolNarshaProject)[]
   friendRelationship?: { npc: string; rapport: number; milestones: number }
   yearSummaries: unknown[]
   snapshots: Snapshot[]
@@ -138,6 +153,7 @@ export interface StatSetback {
 }
 
 export interface StoryEntry {
+  actionSummary?: string
   id: string
   year: number
   turn: number
@@ -193,7 +209,7 @@ export interface GraduationSummary {
   fieldLearningRoute?: FieldLearningRoute | null
   fieldLearning?: FieldLearningExperience | null
   narsha?: NarshaView | null
-  narshaProjects?: NarshaView[]
+  narshaProjects?: (NarshaView | SchoolNarshaProject)[]
   employed?: boolean
   acceptedCompany?: string
   acceptedRole?: string

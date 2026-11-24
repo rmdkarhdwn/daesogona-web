@@ -45,7 +45,7 @@ function scene(game: DemoGame, suffix: string): [string, string] | null {
   }
   if (suffix.startsWith('/events/') && previous?.dailyEvent) {
     const daily = previous.dailyEvent
-    return [daily.title, `${daily.situation} ${daily.choiceLabel}.`]
+    return [daily.title, daily.outcome ?? `${daily.situation} ${daily.choiceLabel}.`]
   }
   if (suffix.startsWith('/events/') && previous?.stressEvent && phase !== 'ENDED') {
     const considering = previous.resultCode === 'WITHDRAWAL_CONSIDERED'
@@ -184,12 +184,13 @@ export function appendDemoStory(game: DemoGame, entries: StoryEntry[], suffix: s
   const previous = game.history.at(-1)
   for (const activity of previous?.beforeSchoolActivities ?? []) {
     entries.push({ id: String(entries.length + 1), year: game.view.year, turn: game.view.turn,
-      beforeSchoolDay: previous?.beforeSchoolDay, title: activity.title, text: activity.description,
+      beforeSchoolDay: previous?.beforeSchoolDay, title: activity.title, text: activity.description, actionSummary: activity.title.split(' · ').at(-1),
       dialogue: [], source: 'MOCK', status: 'READY', tone: 'NEUTRAL' })
   }
   const period = (suffix === '/turns/advance' || previous?.vacation) && previous ? previous : game.view
   entries.push({ id: String(entries.length + 1), year: period.year, turn: period.turn, beforeSchoolDay: game.view.beforeSchoolDay,
-    title: next[0], text: next[1], dialogue: [], source: 'MOCK', status: 'READY', tone: tone(game, suffix),
+    title: next[0], text: next[1],
+    actionSummary: suffix.startsWith('/events/') ? previous?.dailyEvent?.choiceLabel ?? previous?.stressEvent?.choiceLabel : undefined, dialogue: [], source: 'MOCK', status: 'READY', tone: tone(game, suffix),
     assessments: suffix === '/turns/advance' ? previous?.assessments : undefined,
     setbacks: suffix === '/turns/advance' ? previous?.setbacks : undefined,
     stressLoad: suffix === '/turns/advance' ? previous?.stressLoad : undefined })

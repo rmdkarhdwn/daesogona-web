@@ -13,13 +13,16 @@ import { applicationTurn, semesterTurns } from './game/schedule'
 import { fieldLearningRoutes, isFieldLearningRoute } from './game/field-learning'
 import { admissionComponents, admissionProtection, jobLabel, label, stats } from './game/labels'
 import { FieldLearningRecord, History, Notebook, qualificationName } from './game/records'
-import { CurrentStory, DashboardLinks, SchoolRail, StoryJournal, StudentRail } from './game/story'
+import { CurrentStory, StoryJournal } from './game/story'
+import { CampusScene, DashboardLinks, SchoolRail, StudentRail } from './game/dashboard'
 import { InterviewForm } from './game/interview'
+import { isNarshaParticipation, NarshaParticipation } from './game/narsha-participation'
 import { EventSource, NarshaRecord } from './game/school-life'
 import { ChoiceCountdown, ChoiceTimerScope, randomChoice, TimedChoices, useChoiceTimer } from './game/choice-timer'
 import { CampusPhoto, ChoiceForm, Dialog, Frame, Heading, Journey, Loading, PhotoScene, Problem, Receipt, StatList } from './game/ui'
 
 type Run = (method: 'POST' | 'PUT', path: string, body?: Record<string, unknown>, version?: number) => void
+const recentLogCount = 2
 const autoTurnDelay = 3600
 const nextDecisionDelay = 750
 const isNarshaTopic = (code: string) => code === 'N104' || code === 'N201'
@@ -75,7 +78,7 @@ function Home({ run, busy, feedback }: { run: Run; busy: boolean; feedback: Reac
       {feedback}
       <PhotoScene cover>
         <Heading eyebrow="대소고 학교생활 시뮬레이션" title="대소고나">{edition === 'MILD' ? '1학년 1학기부터 시작하는 학교생활과 취업 준비.' : '입학 지원서를 내는 날부터 졸업하는 날까지.'}</Heading>
-        {lockedEdition ? <p className="edition-note">{editionName(edition)} 버전</p> : <fieldset className="edition-picker"><legend>플레이 버전</legend>
+        {!lockedEdition && <fieldset className="edition-picker"><legend>플레이 버전</legend>
           {(['MILD', 'SPICY'] as const).map((value) => <label key={value}>
             <input type="radio" name="edition" aria-label={editionName(value)} checked={edition === value} onChange={() => setEdition(value)} />
             <strong>{editionName(value)}</strong><small>{value === 'MILD' ? '1학년부터 · 휴식과 상담 · 취업 준비 지원' : '입학부터 · 기존 스트레스와 진로 선택'}</small>
@@ -135,7 +138,8 @@ function Game({ player, busy, receipt, feedback, commandFailed, run }: {
   const requiredEvents = visible.filter((event) => event.required)
   const eventOptions = requiredEvents.length ? requiredEvents : visible
   const current = eventOptions.find((event) => event.code === selectedEvent) ?? eventOptions[0]
-  const decision = school && current?.required && current.code !== 'TERM_FOCUS' ? current : undefined
+  const focusEvent = current?.code === 'TERM_FOCUS' || current?.code.startsWith('FOCUS_Y') ? current : undefined
+  const decision = school && current?.required && !focusEvent ? current : undefined
   const hasRequired = requiredEvents.length > 0 || (school && ((player.year === 2 && !player.major) || (player.year === 3 && !player.track)))
   const canAct = school && Boolean(events.data) && !events.error && !hasRequired
   const choiceOpen = visible.some((event) => event.choices.some((choice) => choice.enabled)) || recruitment.hasAction
@@ -181,7 +185,7 @@ function Game({ player, busy, receipt, feedback, commandFailed, run }: {
   else if (player.phase === 'ENDED') panel = <Ending player={player} />
   else if (events.isPending) panel = <Loading />
   else if (events.error) panel = <Problem error={events.error} retry={() => { void events.refetch() }} />
-  else if (current && current.code !== 'TERM_FOCUS') panel = (
+  else if (current && !focusEvent) panel = (
     <>
       {eventOptions.length > 1 && <select className="event-selector" aria-label="현재 이벤트" value={current.code} disabled={busy}
         onChange={(event) => setSelectedEvent(event.target.value)}>
@@ -191,7 +195,8 @@ function Game({ player, busy, receipt, feedback, commandFailed, run }: {
         <section aria-label="중대 결정">
           <Heading eyebrow="중대 결정" title={decision.title} level={2}>{decision.situation}</Heading>
           <EventSource source={decision.source} />
-          {isNarshaTopic(decision.code) ? <NarshaTopicPicker key={decision.code} event={decision} busy={busy} run={run} /> :
+          {isNarshaParticipation(decision.code) ? <NarshaParticipation key={decision.code} playerId={player.id} event={decision} busy={busy} run={run} /> :
+            isNarshaTopic(decision.code) ? <NarshaTopicPicker key={decision.code} event={decision} busy={busy} run={run} /> :
             <TimedChoices choices={decision.choices} busy={busy} onChoose={(choiceCode) => run('POST', `/events/${decision.code}/choices`, { choiceCode })}>{choose =>
             <ol className="decision-options" data-event-code={decision.code}>{decision.choices.map((choice, index) => <li key={choice.code}>
               <button className="btn wide decision-option" type="button" disabled={busy || !choice.enabled}
@@ -214,6 +219,8 @@ function Game({ player, busy, receipt, feedback, commandFailed, run }: {
       </span>
       <button className="btn primary" type="button" disabled={!playback && ((!canAuto && !awaitingChoice) || busy || commandFailed)}
         onClick={() => { if (!playback) showStory(); setPlayback(playback ? null : 'auto') }}>{playback ? '일시 정지' : '자동 진행'}</button>
+      <div className="speed-strip" role="group" aria-label="재생 속도">{[1, 2, 4, 8, 16].map(rate =>
+        <button className="btn" type="button" key={rate} aria-pressed={speed === rate} onClick={() => setSpeed(rate)}>{rate}×</button>)}</div>
       <select className="clock-speed" aria-label="진행 속도" value={speed} onChange={(event) => setSpeed(Number(event.target.value))}>
         {[1, 2, 4, 8, 16].map((rate) => <option key={rate} value={rate}>{rate}×</option>)}
       </select>
@@ -230,30 +237,30 @@ function Game({ player, busy, receipt, feedback, commandFailed, run }: {
       <div className="story-layout">
         <section className="story-main" aria-labelledby="journal-title">
           <DashboardLinks />
+          <CampusScene />
           <div className="journal-heading"><h1 id="journal-title">인생 기록</h1><span>{entries.length}건</span></div>
-          <CurrentStory player={player} entry={entries.at(-1)} loading={story.isPending} failed={story.isError} retry={() => { void story.refetch() }}>
-            {receipt && receipt.actionCode !== 'TURN_ADVANCE' && <Receipt receipt={receipt} />}
-          </CurrentStory>
+          <CurrentStory entries={entries.slice(-recentLogCount).reverse()} loading={story.isPending} failed={story.isError} retry={() => { void story.refetch() }} />
           <section className="current-choices" id="current-choices" aria-labelledby="choices-title">
             <h2 className="section-label" id="choices-title">선택지</h2>
             {!dialog && feedback}
             {panel && <section className="story-card choice-card" id="current-selection" aria-label="지금 열린 선택">{panel}</section>}
             {hiring && canAct && <Recruitment player={player} busy={busy} run={run} data={recruitment} />}
-            {school && !player.vacation && (!hasRequired || current?.code === 'TERM_FOCUS') &&
+            {school && !player.vacation && !player.school?.vacationPending && !player.school?.practiceRemaining && (!hasRequired || focusEvent) &&
               <SemesterFocus key={`${player.year}-${player.turn <= semesterTurns ? 1 : 2}`}
-                player={player} busy={busy} run={run} event={current?.code === 'TERM_FOCUS' ? current : undefined} />}
+                player={player} busy={busy} run={run} event={focusEvent} />}
             {Boolean(player.vacation?.campTurn) && <section className="story-card choice-card">
               <Heading title={`전공강화캠프 · ${player.vacation?.campTurn}/2턴`} level={2}>
                 시간을 진행하면 이번 실습을 마칩니다.
               </Heading>
             </section>}
-            {school && <p className="clock-hint">선택 중에는 시간을 멈추고, 입력이 없으면 10초 후 자동으로 선택합니다.</p>}
+
             {!panel && !hiring && !school && <p className="story-note">현재 열린 선택지가 없습니다.</p>}
           </section>
-          <StoryJournal entries={entries.slice(0, -1)} />
+          {receipt && !['TURN_ADVANCE', 'TURN_END'].includes(receipt.actionCode) && <Receipt receipt={receipt} />}
+          <StoryJournal entries={entries.slice(0, -recentLogCount)} />
         </section>
         <StudentRail player={player} />
-        <SchoolRail player={player} />
+        <SchoolRail player={player} entries={entries} loading={story.isPending} failed={story.isError} />
       </div>
       {dialog === 'notebook' && <Dialog title="학생 수첩" close={() => setDialog(null)}>{feedback}<Notebook player={player} busy={busy} run={run} /></Dialog>}
       {dialog === 'history' && <Dialog title="전체 기록" close={() => setDialog(null)}>{feedback}<History player={player} /></Dialog>}
@@ -270,18 +277,19 @@ function Game({ player, busy, receipt, feedback, commandFailed, run }: {
 function SemesterFocus({ player, busy, run, event }: {
   player: PlayerView; busy: boolean; run: RunPlayer; event?: EventView
 }) {
-  const query = usePlayerData<EventView>(player.id, '/events/TERM_FOCUS', !event && !player.semesterFocus)
-  const focus = player.semesterFocus
+  const query = usePlayerData<EventView>(player.id, '/events/TERM_FOCUS', !event && !player.semesterFocus && !player.school)
+  const stored = player.school?.semesterFocus
+  const focus = player.semesterFocus?.label ?? (stored ? stats[stored as keyof typeof stats] : undefined)
   const semester = player.turn <= semesterTurns ? 1 : 2
   const turnInSemester = (player.turn - 1) % semesterTurns + 1
   const choices = (event ?? query.data)?.choices ?? []
   return (
     <section className="story-card choice-card" aria-label="이번 학기에 집중할 것">
       <Heading eyebrow={`${semester}학기 · ${turnInSemester}/${semesterTurns}턴`} title="이번 학기에 집중할 것" level={2} />
-      {focus ? <p><strong>{focus.label}</strong><br /><small>이 학기가 끝날 때까지 매 턴 적용됩니다.</small></p> :
+      {focus ? <p><strong>{focus}</strong><br /><small>이 학기가 끝날 때까지 매 턴 적용됩니다.</small></p> :
         choices.length ? <ChoiceForm automatic busy={busy} submit="이번 학기 집중 정하기"
           options={choices.map((choice) => ({ value: choice.code, label: choice.label, detail: choice.description, disabled: !choice.enabled }))}
-          onSubmit={(choiceCode) => run('POST', '/events/TERM_FOCUS/choices', { choiceCode })} /> :
+          onSubmit={(choiceCode) => run('POST', `/events/${event?.code ?? 'TERM_FOCUS'}/choices`, { choiceCode })} /> :
           query.isError ? <Problem error={query.error} retry={() => { void query.refetch() }} /> : <Loading />}
     </section>
   )
@@ -369,6 +377,8 @@ function EventPanel({ event, player, busy, run }: { event: EventView; player: Pl
       {event.code === 'AD05' ? (
         <InterviewForm playerId={player.id} path="/events/AD05/interview" busy={busy}
           submit={(questionId, answer) => run('POST', '/events/AD05/choices', { choiceCode: 'ANSWER', questionId, answer })} />
+      ) : isNarshaParticipation(event.code) ? (
+        <NarshaParticipation key={event.code} playerId={player.id} event={event} busy={busy} run={run} />
       ) : isNarshaTopic(event.code) ? (
         <NarshaTopicPicker key={event.code} event={event} busy={busy} run={run} />
       ) : event.selectionCount ? (
@@ -447,13 +457,13 @@ function Ending({ player }: { player: PlayerView }) {
         {summary.components && <p className="muted">{admissionComponents(summary.stage, summary.components)}</p>}</div> :
         <div className="ending-summary">
           {summary.schoolStatus === 'WITHDRAWN' && <p>{summary.withdrawalYear}학년 {summary.withdrawalTurn}턴에 자퇴를 선택했습니다.</p>}
-          <p>최초 희망 · {label(summary.initialCareerCode)}<br />현재 희망 · {label(summary.currentCareerCode)}</p>
+          <p>최초 희망 · {jobLabel(summary.initialCareerCode)}<br />현재 희망 · {jobLabel(summary.currentCareerCode)}</p>
           <p>{label(summary.major)} · {label(summary.track)}</p>
           {summary.employed && summary.acceptedRole ? <p>취업 · {label(summary.acceptedCompany)} · {jobLabel(summary.acceptedRole)}</p> :
             <p>{summary.schoolStatus === 'WITHDRAWN' ? '다음 계획' : '졸업 후'} · {label(summary.nextPath)}</p>}
           <FieldLearningRecord route={summary.fieldLearningRoute} experience={summary.fieldLearning} />
           {summary.narshaProjects?.length ? summary.narshaProjects.map((record, i) =>
-            <NarshaRecord key={record.schoolYear ?? i} record={record} />) : <NarshaRecord record={summary.narsha} />}
+            <NarshaRecord key={'year' in record ? record.year : record.schoolYear ?? i} record={record} />) : <NarshaRecord record={summary.narsha} />}
           {summary.qualifications?.length ? <p>자격증 · {summary.qualifications.map(qualificationName).join(', ')}</p> : null}
           {summary.projects?.length ? <p>프로젝트 · {summary.projects.map((item) => label(item.projectCode)).join(', ')}</p> : null}
           {summary.applicationResults?.map((item) => <p key={item.id}>{label(item.companyCode)} · {label(item.status)}{item.failureCode ? ` · ${label(item.failureCode)}` : ''}</p>)}

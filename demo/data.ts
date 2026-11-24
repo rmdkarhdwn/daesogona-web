@@ -10,6 +10,7 @@ export const admissionTracks = {
 } satisfies Record<AdmissionTrack, { title: string; eligibilityChance: number; weights: number[] }>
 
 export interface DemoChoice {
+  outcome?: string
   code: string
   label: string
   delta?: Partial<Stats>
@@ -18,7 +19,7 @@ export interface DemoChoice {
   description?: string
 }
 
-interface DemoEvent {
+export interface DemoEvent {
   code: string
   title: string
   situation: string

@@ -59,11 +59,14 @@ for (const width of [360, 1280]) {
     const recovery = events(game)[0].choices[0]
     await dialog.getByRole('button', { name: recovery.label, exact: true }).click()
     await expect(page.getByRole('meter', { name: '스트레스', exact: true })).toHaveAttribute('value', String(game.view.stats.S))
-    await expect(recent.getByRole('heading', { name: '학교생활의 부담을 나누다', exact: true })).toBeVisible()
-    await expect(past.getByRole('heading', { name: '일과를 마친 뒤의 휴식', exact: true })).toBeVisible()
+    await expect(recent.locator('summary .recent-action')).toHaveText([recovery.label, '수업을 마치고 쉬며 부담을 조금 덜었다.'])
+    await expect(recent.locator('details[open]')).toHaveCount(0)
+    await expect(past.getByRole('heading', { name: '일과를 마친 뒤의 휴식', exact: true })).toHaveCount(0)
     await expect(past.getByRole('heading', { name: '학교생활의 부담을 나누다', exact: true })).toHaveCount(0)
-    await expect(page.getByRole('list', { name: '스트레스 변화 이유' }).first()).toContainText('덜어 낸 부담 · 스트레스 -2')
+    await recent.locator('summary').nth(1).click()
+    await expect(recent.locator('details').nth(1).getByRole('list', { name: '스트레스 변화 이유' })).toContainText('덜어 낸 부담 · 스트레스 -2')
     await expect(page.getByText('스트레스 +-2', { exact: false })).toHaveCount(0)
+    await recent.locator('summary').nth(1).click()
     await page.screenshot({ path: `/tmp/daesogo-story-order-${width}.png`, fullPage: true })
 
     game.view.stats.S = 90
@@ -71,6 +74,8 @@ for (const width of [360, 1280]) {
     await expect(dialog.getByRole('heading', { name: '학교를 계속 다닐 수 있을까' })).toBeVisible()
     await dialog.getByRole('button', { name: '자퇴를 고민해 보기', exact: true }).click()
     await expect(dialog.getByRole('heading', { name: '자퇴를 결정하기 전에' })).toBeVisible()
+    await expect(recent.locator('.recent-action')).toHaveText(['자퇴를 고민해 보기', recovery.label])
+    await expect(past.getByRole('heading', { name: '일과를 마친 뒤의 휴식', exact: true })).toBeVisible()
     await page.reload()
     await expect(dialog.getByRole('heading', { name: '자퇴를 결정하기 전에' })).toBeVisible()
     await dialog.getByRole('button', { name: '도움을 받으며 학교생활 이어가기', exact: true }).click()

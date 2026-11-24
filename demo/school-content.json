@@ -976,5 +976,96 @@
         "source": "POST_EMPLOYMENT_STUDY"
       }
     }
-  ]
+  ],
+  "choiceOutcomes": {
+    "DAILY_FRIEND:FRIEND_HELP": "친구가 내 쪽으로 노트북을 돌렸다. 같은 코드를 두 번 실행했는데 화면은 한 번만 멎었다. 우리는 그때 눌렀던 키부터 적어 봤다.",
+    "DAILY_FEEDBACK:REVIEW_NOTE": "리뷰 창을 닫기 전에 이해가 끊긴 줄 번호를 노트 여백에 옮겼다. 옆에 물음표를 그리고, 다음 실습 때 이 페이지부터 펴기로 했다.",
+    "DAILY_ROOMMATE:ROOM_WALK": "룸메이트와 운동장에 내려왔다. 처음에는 제출할 과제 얘기만 했는데, 트랙을 한 바퀴 돌 무렵엔 저녁 급식 얘기로 넘어가 있었다."
+  },
+  "followUps": {
+    "DAILY_FRIEND:FRIEND_HELP": {
+      "code": "DAILY_TEST_CASE",
+      "title": "빈칸 하나짜리 테스트",
+      "situation": "지난 실습에서 같이 오류를 찾았던 친구가 내 책상에 쪽지를 놓는다. “아무것도 입력 안 하면 어떻게 돼?” 쪽지에는 커서 하나만 깜빡이는 화면이 그려져 있다.",
+      "required": false,
+      "choices": [
+        {
+          "code": "TEST_TOGETHER",
+          "label": "둘이 빈 입력부터 실행해 보기",
+          "delta": {
+            "P": 2,
+            "S": 2
+          },
+          "cost": 0,
+          "outcome": "같이 실행해 보니 이름 칸이 비었을 때만 화면이 멎었다. 친구가 그 칸에 동그라미를 쳤다."
+        },
+        {
+          "code": "TEST_HANDOFF",
+          "label": "친구에게 테스트를 맡기고 증상을 받아 적기",
+          "delta": {
+            "C": 1,
+            "S": -2
+          },
+          "cost": 0,
+          "outcome": "친구 손이 어느 키에서 멈추는지 보였다. 이번엔 키보드를 건드리지 않고 그 순서만 적었다."
+        }
+      ]
+    },
+    "DAILY_FEEDBACK:REVIEW_NOTE": {
+      "code": "DAILY_MARGIN",
+      "title": "노트 여백의 물음표",
+      "situation": "지난 코드 리뷰 때 적어 둔 질문 옆에 선생님이 의자를 끌어다 놓는다. “어느 줄까지는 네 예상대로였어?” 수업 종이 울리기까지 조금 남았다.",
+      "required": false,
+      "choices": [
+        {
+          "code": "MARGIN_TRACE",
+          "label": "노트에 변수 값을 손으로 따라 적기",
+          "delta": {
+            "A": 2,
+            "S": 1
+          },
+          "cost": 0,
+          "outcome": "세 번째 줄까지 적고 보니 같은 변수에 두 번 값을 넣고 있었다. 물음표 옆에 그 줄 번호를 적었다."
+        },
+        {
+          "code": "MARGIN_ASK",
+          "label": "헷갈린 한 줄을 짚어 질문하기",
+          "delta": {
+            "C": 1,
+            "S": -3
+          },
+          "cost": 0,
+          "outcome": "그 줄을 손가락으로 짚자 선생님이 입력값 하나를 바꿔 보셨다. 두 실행 결과를 나란히 놓고 보니 질문이 짧아졌다."
+        }
+      ]
+    },
+    "DAILY_ROOMMATE:ROOM_WALK": {
+      "code": "DAILY_SECOND_LAP",
+      "title": "운동장 반 바퀴",
+      "situation": "지난번 같이 걸었던 룸메이트가 운동화 끈을 고쳐 맨다. “오늘은 내가 들어 줄까?” 운동장 모퉁이에서 발걸음이 조금 느려진다.",
+      "required": false,
+      "choices": [
+        {
+          "code": "LAP_TALK",
+          "label": "걸으면서 마음에 걸린 일 꺼내기",
+          "delta": {
+            "C": 1,
+            "S": -4
+          },
+          "cost": 0,
+          "outcome": "말을 꺼내 놓고 보니 운동장 반 바퀴가 금방이었다. 룸메이트는 기숙사 입구까지 내 말을 끊지 않았다."
+        },
+        {
+          "code": "LAP_QUIET",
+          "label": "말없이 보폭 맞추기",
+          "delta": {
+            "H": 3,
+            "S": -3
+          },
+          "cost": 0,
+          "outcome": "대답 대신 보폭을 맞췄다. 트랙을 돌아오는 동안 운동화 밑창 소리만 번갈아 들렸다."
+        }
+      ]
+    }
+  }
 }

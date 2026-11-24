@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig(async ({ mode, command }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  if (command === 'build' && process.env.VERCEL === '1') {
+  if (command === 'build' && process.env.VERCEL === '1' && env.VITE_API_BASE_URL && env.VITE_API_BASE_URL !== '/api/v1') {
     let api: URL | undefined
     try { api = new URL(env.VITE_API_BASE_URL) } catch { /* Validated below. */ }
     if (!api || api.protocol !== 'https:' || ['localhost', '127.0.0.1', '[::1]'].includes(api.hostname)

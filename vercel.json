@@ -4,7 +4,11 @@
   "installCommand": "npm ci",
   "buildCommand": "npm run build:mild",
   "outputDirectory": "dist/mild",
+  "headers": [
+    { "source": "/api/v1/:path*", "headers": [{ "key": "Cache-Control", "value": "no-store" }, { "key": "x-vercel-enable-rewrite-caching", "value": "0" }] }
+  ],
   "rewrites": [
+    { "source": "/api/v1/:path*", "destination": "https://silvally.onrender.com/api/v1/:path*" },
     { "source": "/play/:id", "destination": "/index.html" },
     { "source": "/ending/:id", "destination": "/index.html" }
   ]

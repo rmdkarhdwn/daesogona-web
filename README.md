@@ -50,11 +50,9 @@ Vercel에서 `rmdkarhdwn/daesogona-web` 저장소를 가져오고 **Root Directo
 - Output Directory: `dist/mild`
 - Node.js: 22.x (이 프로젝트의 최소 버전은 22.12)
 
-Production과 사용할 Preview 환경의 **`VITE_API_BASE_URL`**에 실제 배포한 Spring 서버 주소를 `/api/v1`까지 입력합니다. 예시 형식은 `https://your-api.example/api/v1`이며, 이 예시 도메인을 실제 주소로 사용하지 않습니다. 값 변경 후 다시 빌드·배포해야 합니다. 누락·HTTP·로컬 주소·잘못된 경로는 Vercel 빌드에서 거절합니다. 기존 `DAESOGO_BACKEND_URL`은 Vite 개발 서버용이므로 운영 환경의 API 연결 설정을 대신하지 않습니다.
+기본 배포는 같은 도메인의 `/api/v1`을 사용합니다. `vercel.json`이 해당 요청을 팀 Render 서버 `https://silvally.onrender.com/api/v1`로 전달하므로 기본 설정에서는 별도 웹 환경 변수가 필요하지 않습니다. 게임 API 응답은 캐시하지 않습니다. `/play/:id`와 `/ending/:id`는 새로고침 시에도 게임 화면을 엽니다.
 
-Vercel은 이 프론트엔드를 배포하며 Spring Boot 서버는 별도로 실행합니다. #32가 반영된 Spring 서버에서는 `CORS_ALLOWED_ORIGINS`에 실제 Vercel 웹 주소(경로·끝 슬래시 제외)를 등록합니다. 해당 설정은 `Content-Type`, `Idempotency-Key`, `X-Expected-Version` 헤더와 GET/POST/PUT/DELETE/OPTIONS 요청을 허용합니다. AI 키는 기존 서버에만 둡니다.
-
-`/play/:id`, `/ending/:id`는 `index.html`로 연결해 직접 접속·새로고침을 처리합니다. `/api`나 PDF·사진 경로를 SPA로 바꾸지 않습니다. 이 설정은 Spring API 프록시가 아니며, 브라우저는 `VITE_API_BASE_URL`로 직접 요청합니다. 실제 서버 주소가 아직 확정되지 않았으므로 특정 서버 URL을 코드에 고정하지 않았습니다.
+브라우저에서 다른 서버를 직접 호출할 때는 Vercel에 `VITE_API_BASE_URL`을 HTTPS 주소와 `/api/v1` 경로까지 설정하고 다시 배포합니다. 이 경우 해당 서버에서 웹 도메인의 CORS 요청을 허용해야 합니다. AI 키는 Spring 서버에서 관리합니다.
 
 팀 서버의 API 계약·모드·웹 기본 구현은 팀 저장소에 반영되어 있습니다. 실제 서버 연결은 [#35](https://github.com/shawnatak926/silvally/issues/35)를 따라 검증해야 합니다. 이 개인 저장소에는 Java 서버나 AI 키를 포함하지 않습니다. API 계약을 맞춘 뒤 배포된 주소에서 회차 생성→희망 직무→턴 진행→새로고침→졸업을 확인해야 합니다. 프론트 빌드 성공만으로 온라인 게임이 완성된 것으로 표시하지 않습니다.
 

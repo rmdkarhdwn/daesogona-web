@@ -1,9 +1,14 @@
+import { companyNames } from './company-catalog'
 import type { AdmissionProtection, PlayerView, Stat } from '../api/contracts'
 import { fieldLearningRoutes } from './field-learning'
 
 export const stats: Record<Stat, string> = { P: '프로그래밍', F: '프론트엔드', B: '백엔드', I: '인공지능', EN: '영어', A: '학업', G: '성적', C: '의사소통', H: '체력', S: '스트레스' }
 
 const labels: Record<string, string> = {
+  ...companyNames,
+  SOFTWARE: '소프트웨어개발과', UNIVERSITY: '진학 준비', EMPLOYMENT: '취업', UNEMPLOYED: '다시 취업 준비', INDIE_DEV: '개인 개발 준비',
+  WEB_PORTFOLIO_SITE: '포트폴리오 웹사이트', REST_API_SERVER: 'REST API 서버', ANDROID_NOTE_APP: '안드로이드 메모 앱',
+  AI_TOOL_SERVICE: 'AI 도구 활용 서비스', CHATBOT: 'AI 챗봇', MINI_GAME: '미니 게임',
   GENERAL: '일반전형', MEISTER: '마이스터인재', LOCAL: '지역우선', SOCIAL: '사회통합',
   WEB: '웹 개발자', BACKEND: '백엔드 개발자', CROSS_PLATFORM: '크로스플랫폼 개발자', ANDROID: '안드로이드 개발자',
   IOS: 'iOS 개발자', GAME: '게임 개발자', NETWORK: '네트워크 개발자', SECURITY: '보안 개발자',
@@ -74,6 +79,10 @@ const labels: Record<string, string> = {
 }
 
 export const label = (code?: string | null) => code ? labels[code] ?? code : '미정'
+export function trackLabel(track?: string | null) {
+  const tracks: Record<string, string> = { WEB: '웹 서비스 트랙', AI: 'AI 트랙', MOBILE: '모바일 앱 트랙', GAME: '게임 트랙', NETWORK: '네트워크·보안 트랙' }
+  return track ? tracks[track] ?? label(track) : '미정'
+}
 export const actionLabel = (code: string) => code === 'SOCIAL' ? '친구와 교류' : label(code)
 export const jobLabel = (role?: string | null) => role ? ({
   FE: '프론트엔드', BE: '백엔드', AI: '인공지능 개발자', SW: '소프트웨어 개발', DESIGN: 'UI/UX 디자인', MOBILE: '모바일 개발', GAME: '게임 개발',

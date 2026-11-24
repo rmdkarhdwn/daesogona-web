@@ -2,7 +2,7 @@ import type { PlayerView, ProgressView, StoryEntry } from '../api/contracts'
 import { usePlayerData } from '../api/hooks'
 import { useGameUi } from '../state'
 import { yearTurns } from './schedule'
-import { jobLabel, label, phaseLabel } from './labels'
+import { jobLabel, label, trackLabel, phaseLabel } from './labels'
 import { FieldLearningRecord, qualificationName } from './records'
 import { NarshaRecord, SchoolLifeCatalog } from './school-life'
 import { CommitCalendar } from './commit-calendar'
@@ -30,7 +30,7 @@ function goals(player: PlayerView) {
   switch (player.year) {
     case 1: return ['기초 수업과 기숙사 생활 적응', '친구와 협업하고 첫 프로젝트 경험하기']
     case 2: return [player.major ? `${label(player.major)} 수업 경험` : '2학년 학과 선택', '팀 프로젝트와 자격증 준비']
-    case 3: return [player.track ? `${label(player.track)} 실무 수업 경험` : '3학년 수업 선택', '현장학습과 졸업 후 진로 탐색']
+    case 3: return [player.track ? `${trackLabel(player.track)} 실무 수업 경험` : '3학년 수업 선택', '현장학습과 졸업 후 진로 탐색']
     default: return []
   }
 }
@@ -72,7 +72,7 @@ export function StudentRail({ player }: { player: PlayerView }) {
           <div><dt>{player.edition === 'MILD' ? '시작 시점' : '입학 전형'}</dt><dd>{player.edition === 'MILD' ? '1학년 1학기' : label(player.admissionTrack)}</dd></div>
           <div><dt>희망 직무</dt><dd>{jobLabel(player.currentCareerCode)}</dd></div>
           <div><dt>2학년 학과</dt><dd>{label(player.major)}</dd></div>
-          <div><dt>3학년 수업</dt><dd>{label(player.track)}</dd></div>
+          <div><dt>3학년 수업</dt><dd>{trackLabel(player.track)}</dd></div>
         </dl>
         <p className="student-serial">회차 <span>{player.id.slice(0, 8).toUpperCase()}</span></p>
         <div className="rail-actions">

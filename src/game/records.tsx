@@ -7,7 +7,7 @@ import {
 } from '../api/contracts'
 import { usePlayerData } from '../api/hooks'
 import { AssessmentResults } from './assessments'
-import { admissionProtection, jobLabel, label } from './labels'
+import { admissionProtection, jobLabel, label, trackLabel } from './labels'
 import { fieldLearningDetail, fieldLearningRoutes, fieldLearningStatusLabel } from './field-learning'
 import { careerCatalogPath, type RunPlayer } from './activities'
 import { NarshaRecord } from './school-life'
@@ -38,7 +38,7 @@ export function Notebook({ player, busy, run }: { player: PlayerView; busy: bool
   const catalog = useCareerCatalog(player.id, Boolean(preference.data?.canChange))
   return (
     <>
-      <p className="record-line"><strong>{player.name}</strong> · {label(player.admissionTrack)} · {label(player.major)} · {label(player.track)}</p>
+      <p className="record-line"><strong>{player.name}</strong> · {label(player.admissionTrack)} · {label(player.major)} · {trackLabel(player.track)}</p>
       <p className="muted">최초 희망 · {jobLabel(player.initialCareerCode)}<br />현재 희망 · {jobLabel(player.currentCareerCode)}</p>
       <h3>능력치</h3><StatList values={player.stats} />
       <h3>가방</h3>

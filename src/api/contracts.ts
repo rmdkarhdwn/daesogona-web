@@ -186,13 +186,16 @@ export interface AssessmentResult {
 export interface StoryView { entries: StoryEntry[] }
 
 export type JobStep = 'CODING' | 'INTERVIEW' | 'RESULT'
-export interface InterviewQuestion { id: string; question: string; source: 'AI' | 'MOCK' | 'FALLBACK'; kind: 'SCHOOL' | 'COMPANY' }
+export interface InterviewQuestion { id?: string; questionId?: string; question: string; source: 'AI' | 'MOCK' | 'FALLBACK'; kind: 'SCHOOL' | 'COMPANY' }
 export interface InterviewEvaluation { score: number; criteria: { label: string; score: number }[] }
 export interface ApplicationView {
   id: string
   companyCode: string
   role: string
   status: string
+  d?: number | null
+  k?: number | null
+  j?: number | null
   D?: number | null
   K?: number | null
   J?: number | null
@@ -212,6 +215,8 @@ export interface GraduationSummary {
   track?: string
   qualifications?: (Qualification | string)[]
   projects?: Project[]
+  stats?: Stats
+  certificates?: { courseCode: string; certificate: string }[]
   finalStats?: Stats
   fieldLearningRoute?: FieldLearningRoute | null
   fieldLearning?: FieldLearningExperience | null

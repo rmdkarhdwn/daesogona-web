@@ -9,9 +9,11 @@ import { useCommands, usePlayerData, useStory } from './api/hooks'
 import { useGameUi, useSavedGame } from './state'
 import { onPlayer, Recruitment, useRecruitment, type RunPlayer } from './game/activities'
 import { editionName, lockedEdition, type GameEdition } from './game/editions'
-import { applicationTurn, semesterTurns } from './game/schedule'
+import { JobPortfolio } from './game/job-portfolio'
+import { recruitmentCalendar } from './game/recruitment-calendar'
+import { semesterTurns } from './game/schedule'
 import { fieldLearningRoutes, isFieldLearningRoute } from './game/field-learning'
-import { admissionComponents, admissionProtection, jobLabel, label, stats } from './game/labels'
+import { admissionComponents, admissionProtection, jobLabel, label, trackLabel, stats } from './game/labels'
 import { FieldLearningRecord, History, Notebook, qualificationName } from './game/records'
 import { CurrentStory, StoryJournal } from './game/story'
 import { CampusScene, DashboardLinks, SchoolRail, StudentRail } from './game/dashboard'
@@ -122,7 +124,7 @@ function Game({ player, busy, receipt, feedback, commandFailed, run }: {
 }) {
   const school = isSchool(player)
   const ordinary = !['CAREER_PICK', 'GRAD_READY', 'ENDED'].includes(player.phase)
-  const hiring = school && !player.vacation && player.year === 3 && player.turn >= applicationTurn
+  const hiring = school && !player.vacation && player.year === 3 && player.turn >= recruitmentCalendar(player).starts
   const { dialog, setDialog } = useGameUi()
   const yearChoice = school && player.school ? player.school.pendingChoice : null
   const events = usePlayerData<EventView[]>(player.id, '/events', ordinary && !yearChoice)
@@ -246,6 +248,7 @@ function Game({ player, busy, receipt, feedback, commandFailed, run }: {
             <h2 className="section-label" id="choices-title">선택지</h2>
             {!dialog && feedback}
             {panel && <section className="story-card choice-card" id="current-selection" aria-label="지금 열린 선택">{panel}</section>}
+            {player.school && school && canAct && !player.school.vacationPending && (player.year < 3 || player.turn <= 4) && <JobPortfolio player={player} busy={busy} run={run} />}
             {hiring && canAct && <Recruitment player={player} busy={busy} run={run} data={recruitment} />}
             {school && !player.vacation && !player.school?.vacationPending && !player.school?.practiceRemaining && (!hasRequired || focusEvent) &&
               <SemesterFocus key={`${player.year}-${player.turn <= semesterTurns ? 1 : 2}`}
@@ -454,13 +457,13 @@ function GraduationPicker({ player, busy, run }: { player: PlayerView; busy: boo
     <>
       <Heading eyebrow="학교생활의 마지막 선택" title="졸업 후 진로" level={2}>학교에서 쌓은 경험을 바탕으로 다음 걸음을 정합니다.</Heading>
       <ChoiceForm busy={busy} submit="졸업 확정" onSubmit={(value) => {
-        if (value.startsWith('offer:')) run('POST', '/graduation', { path: 'ACCEPT_OFFER', applicationId: value.slice(6) })
+        if (value.startsWith('offer:')) run('POST', '/graduation', { path: player.school ? 'EMPLOYMENT' : 'ACCEPT_OFFER', applicationId: value.slice(6) })
         else run('POST', '/graduation', { path: value })
       }} options={[
         ...offers.map((item) => ({ value: `offer:${item.id}`, label: `${label(item.companyCode)} 제안 수락`, detail: jobLabel(item.role) })),
-        { value: 'RETRY_JOB', label: '다시 취업 준비' },
-        { value: 'STUDY_NEXT', label: '진학 준비', detail: '진학 준비 2회와 학업 35점' },
-        { value: 'INDIE', label: '개인 개발 준비', detail: '개인 개발 준비 1회와 완성 프로젝트' },
+        { value: player.school ? 'UNEMPLOYED' : 'RETRY_JOB', label: '다시 취업 준비' },
+        { value: player.school ? 'UNIVERSITY' : 'STUDY_NEXT', label: '진학 준비', detail: player.school ? undefined : '진학 준비 2회와 학업 35점' },
+        { value: player.school ? 'INDIE_DEV' : 'INDIE', label: '개인 개발 준비', detail: player.school ? '포트폴리오 등록 작품 1개 이상' : '개인 개발 준비 1회와 완성 프로젝트' },
       ]} />
     </>
   )
@@ -470,7 +473,7 @@ function Ending({ player }: { player: PlayerView }) {
   const result = usePlayerData<EndingView>(player.id, '/ending')
   if (result.isPending) return <Loading />
   if (result.error) return <Problem error={result.error} retry={() => { void result.refetch() }} />
-  const { title, body, summary } = result.data
+  const { title, body, summary, selectedPath, acceptedCompany, acceptedRole } = result.data
   return (
     <>
       <Heading eyebrow={player.endReason === 'WITHDRAWAL' ? '학교생활 기록' : player.year ? '졸업 기록' : '입학 전형 결과'} title={title} level={2}>{body}</Heading>
@@ -480,16 +483,17 @@ function Ending({ player }: { player: PlayerView }) {
         <div className="ending-summary">
           {summary.schoolStatus === 'WITHDRAWN' && <p>{summary.withdrawalYear}학년 {summary.withdrawalTurn}턴에 자퇴를 선택했습니다.</p>}
           <p>최초 희망 · {jobLabel(summary.initialCareerCode)}<br />현재 희망 · {jobLabel(summary.currentCareerCode)}</p>
-          <p>{label(summary.major)} · {label(summary.track)}</p>
-          {summary.employed && summary.acceptedRole ? <p>취업 · {label(summary.acceptedCompany)} · {jobLabel(summary.acceptedRole)}</p> :
-            <p>{summary.schoolStatus === 'WITHDRAWN' ? '다음 계획' : '졸업 후'} · {label(summary.nextPath)}</p>}
+          <p>{label(summary.major)} · {trackLabel(summary.track)}</p>
+          {(acceptedRole || (summary.employed && summary.acceptedRole)) ? <p>취업 · {label(acceptedCompany ?? summary.acceptedCompany)} · {jobLabel(acceptedRole ?? summary.acceptedRole)}</p> :
+            <p>{summary.schoolStatus === 'WITHDRAWN' ? '다음 계획' : '졸업 후'} · {label(summary.nextPath ?? selectedPath)}</p>}
           <FieldLearningRecord route={summary.fieldLearningRoute} experience={summary.fieldLearning} />
           {summary.narshaProjects?.length ? summary.narshaProjects.map((record, i) =>
             <NarshaRecord key={'year' in record ? record.year : record.schoolYear ?? i} record={record} />) : <NarshaRecord record={summary.narsha} />}
+          {summary.certificates?.length ? <p>자격증 · {summary.certificates.map(item => item.certificate).join(', ')}</p> : null}
           {summary.qualifications?.length ? <p>자격증 · {summary.qualifications.map(qualificationName).join(', ')}</p> : null}
           {summary.projects?.length ? <p>프로젝트 · {summary.projects.map((item) => label(item.projectCode)).join(', ')}</p> : null}
           {summary.applicationResults?.map((item) => <p key={item.id}>{label(item.companyCode)} · {label(item.status)}{item.failureCode ? ` · ${label(item.failureCode)}` : ''}</p>)}
-          {summary.finalStats && <details><summary>졸업 능력치</summary><StatList values={summary.finalStats} /></details>}
+          {(summary.finalStats ?? summary.stats) && <details><summary>졸업 능력치</summary><StatList values={(summary.finalStats ?? summary.stats)!} /></details>}
         </div>}
       <Link className="btn primary wide continue" to="/">새 회차 시작</Link>
     </>

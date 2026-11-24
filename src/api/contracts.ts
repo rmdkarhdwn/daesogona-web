@@ -3,6 +3,13 @@ export type Phase = 'ADMISSION_1' | 'ADMISSION_2' | 'BEFORE_SCHOOL' | 'CAREER_PI
 export type Stat = 'P' | 'F' | 'B' | 'I' | 'EN' | 'A' | 'G' | 'C' | 'H' | 'S'
 export type Stats = Record<Stat, number>
 export interface SemesterFocusView { code: string; label: string; semester: number }
+export type YearChoice = 'MAJOR' | 'TRACK'
+export interface YearTransitionView {
+  year: number
+  pendingChoice: YearChoice | null
+  options: { code: string; title: string; focus: Stat[] }[]
+  notice?: string | null
+}
 export interface VacationView { season: 'SUMMER' | 'WINTER'; campTurn: number }
 export interface PlayerView {
   id: string
@@ -14,7 +21,7 @@ export interface PlayerView {
   phase: Phase
   year: number
   turn: number
-  school?: { semesterFocus: string | null; vacationPending: boolean; practiceRemaining: number }
+  school?: { pendingChoice?: YearChoice | null; semesterFocus: string | null; vacationPending: boolean; practiceRemaining: number }
   semesterFocus?: SemesterFocusView
   vacation?: VacationView
   remainingAp: number

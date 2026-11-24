@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Link, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import { ApiError, resultReceipt } from './api/client'
 import {
-  CAMPUS_FINISH_CHOICE, isSchool, type ApplicationView, type CareerPreferenceView, type EndingView, type EventView,
+  CAMPUS_FINISH_CHOICE, isSchool, playerPath, type YearChoice, type YearTransitionView, type ApplicationView, type CareerPreferenceView, type EndingView, type EventView,
   type MutationResult, type PlayerView,
 } from './api/contracts'
 import { useCommands, usePlayerData, useStory } from './api/hooks'
@@ -124,7 +124,8 @@ function Game({ player, busy, receipt, feedback, commandFailed, run }: {
   const ordinary = !['CAREER_PICK', 'GRAD_READY', 'ENDED'].includes(player.phase)
   const hiring = school && !player.vacation && player.year === 3 && player.turn >= applicationTurn
   const { dialog, setDialog } = useGameUi()
-  const events = usePlayerData<EventView[]>(player.id, '/events', ordinary)
+  const yearChoice = school && player.school ? player.school.pendingChoice : null
+  const events = usePlayerData<EventView[]>(player.id, '/events', ordinary && !yearChoice)
   const story = useStory(player)
   const recruitment = useRecruitment(player, hiring)
   const [selectedEvent, setSelectedEvent] = useState<string>()
@@ -134,13 +135,13 @@ function Game({ player, busy, receipt, feedback, commandFailed, run }: {
   )
   const [speed, setSpeed] = useState(1)
   const entries = story.data?.entries ?? []
-  const visible = ordinary ? events.data ?? [] : []
+  const visible = ordinary && !yearChoice ? events.data ?? [] : []
   const requiredEvents = visible.filter((event) => event.required)
   const eventOptions = requiredEvents.length ? requiredEvents : visible
   const current = eventOptions.find((event) => event.code === selectedEvent) ?? eventOptions[0]
   const focusEvent = current?.code === 'TERM_FOCUS' || current?.code.startsWith('FOCUS_Y') ? current : undefined
   const decision = school && current?.required && !focusEvent ? current : undefined
-  const hasRequired = requiredEvents.length > 0 || (school && ((player.year === 2 && !player.major) || (player.year === 3 && !player.track)))
+  const hasRequired = Boolean(yearChoice) || requiredEvents.length > 0 || (school && ((player.year === 2 && !player.major) || (player.year === 3 && !player.track)))
   const canAct = school && Boolean(events.data) && !events.error && !hasRequired
   const choiceOpen = visible.some((event) => event.choices.some((choice) => choice.enabled)) || recruitment.hasAction
   const importantChoice = visible.some((event) => (event.blocksAuto ?? (event.required || event.code === 'J01'))
@@ -183,6 +184,7 @@ function Game({ player, busy, receipt, feedback, commandFailed, run }: {
   if (player.phase === 'CAREER_PICK') panel = <CareerPicker player={player} busy={busy} run={run} />
   else if (player.phase === 'GRAD_READY') panel = <GraduationPicker player={player} busy={busy} run={run} />
   else if (player.phase === 'ENDED') panel = <Ending player={player} />
+  else if (yearChoice) panel = <YearTransitionPicker key={yearChoice} player={player} kind={yearChoice} busy={busy} run={run} />
   else if (events.isPending) panel = <Loading />
   else if (events.error) panel = <Problem error={events.error} retry={() => { void events.refetch() }} />
   else if (current && !focusEvent) panel = (
@@ -272,6 +274,26 @@ function Game({ player, busy, receipt, feedback, commandFailed, run }: {
       </Dialog>}
     </Frame></ChoiceTimerScope>
   )
+}
+
+function YearTransitionPicker({ player, kind, busy, run }: {
+  player: PlayerView; kind: YearChoice; busy: boolean; run: RunPlayer
+}) {
+  const path = '/year-transition'
+  const query = usePlayerData<YearTransitionView>(player.id, path + '/' + kind, true, playerPath(player.id) + path)
+  if (query.isPending) return <Loading />
+  if (query.error) return <Problem error={query.error} retry={() => { void query.refetch() }} />
+  const { year, pendingChoice, options, notice } = query.data
+  const major = kind === 'MAJOR'
+  if (year !== player.year || pendingChoice !== kind || !options.length) return <p role="status">
+    학년 선택 정보를 다시 확인해 주세요. <button className="btn" onClick={() => window.location.reload()}>다시 불러오기</button>
+  </p>
+  return <section aria-label="중대 결정">
+    <Heading eyebrow="중대 결정" title={major ? '2학년 학과 선택' : '3학년 수업 선택'} level={2}>{notice}</Heading>
+    <ChoiceForm automatic busy={busy} submit={major ? '학과 확정' : '수업 확정'}
+      options={options.map(option => ({ value: option.code, label: option.title, detail: option.focus.map(stat => stats[stat]).join(' · ') }))}
+      onSubmit={choiceCode => run('POST', path, { choiceCode })} />
+  </section>
 }
 
 function SemesterFocus({ player, busy, run, event }: {

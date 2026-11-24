@@ -1,17 +1,8 @@
-import { randomUUID } from 'node:crypto'
+import { api } from './helpers/server-api'
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test'
 import type { EventView, NarshaTopics, PlayerView, SchoolNarshaProject } from '../src/api/contracts'
 
 test.skip(!process.env.DAESOGO_E2E_BACKEND_URL, '실제 Spring 서버로 참가와 저장을 검증합니다.')
-
-async function api(request: APIRequestContext, path: string, method = 'GET', data?: object, version?: number) {
-  const response = await request.fetch('/api/v1/players' + path, {
-    method, data, headers: { 'Idempotency-Key': randomUUID(), ...(version == null ? {} : { 'X-Expected-Version': String(version) }) },
-  })
-  const result = await response.json()
-  expect(result.success, method + ' ' + path + ' ' + JSON.stringify(result.error)).toBe(true)
-  return result.data
-}
 
 async function reachEvent(request: APIRequestContext, id: string, eventCode: string) {
   for (let step = 0; step < 55; step++) {

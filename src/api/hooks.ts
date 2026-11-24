@@ -2,7 +2,9 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { useGameUi, useSavedGame } from '../state'
 import { ApiError, newCommandKey, request, resultPlayer, sendCommand, type PendingCommand } from './client'
-import { playerPath, type PlayerView, type StoryView } from './contracts'
+import { playerPath, type PlayerView } from './contracts'
+
+import { loadStory } from './story'
 
 const queryKey = (id: string, suffix: string) => ['player', id, suffix] as const
 
@@ -18,7 +20,7 @@ export function usePlayerData<T>(id: string, suffix: string, enabled = true, pat
 export function useStory(id: string) {
   return useQuery({
     queryKey: queryKey(id, '/story'),
-    queryFn: ({ signal }) => request<StoryView>(`${playerPath(id)}/story`, { signal }),
+    queryFn: ({ signal }) => loadStory(id, signal),
     retry: false,
     refetchInterval: (query) => query.state.data?.entries.some((entry) => entry.status === 'PENDING') ? 1500 : false,
   })

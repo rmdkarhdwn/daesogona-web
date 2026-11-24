@@ -125,7 +125,7 @@ function Game({ player, busy, receipt, feedback, commandFailed, run }: {
   const hiring = school && !player.vacation && player.year === 3 && player.turn >= applicationTurn
   const { dialog, setDialog } = useGameUi()
   const events = usePlayerData<EventView[]>(player.id, '/events', ordinary)
-  const story = useStory(player.id)
+  const story = useStory(player)
   const recruitment = useRecruitment(player, hiring)
   const [selectedEvent, setSelectedEvent] = useState<string>()
   const playbackKey = `daesogo.playback.${player.id}`

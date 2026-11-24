@@ -17,10 +17,10 @@ export function usePlayerData<T>(id: string, suffix: string, enabled = true, pat
   })
 }
 
-export function useStory(id: string) {
+export function useStory(player: PlayerView) {
   return useQuery({
-    queryKey: queryKey(id, '/story'),
-    queryFn: ({ signal }) => loadStory(id, signal),
+    queryKey: queryKey(player.id, '/story'),
+    queryFn: ({ signal }) => loadStory(player, signal),
     retry: false,
     refetchInterval: (query) => query.state.data?.entries.some((entry) => entry.status === 'PENDING') ? 1500 : false,
   })

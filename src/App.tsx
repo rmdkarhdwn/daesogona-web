@@ -13,7 +13,7 @@ import { JobPortfolio } from './game/job-portfolio'
 import { recruitmentCalendar } from './game/recruitment-calendar'
 import { semesterTurns } from './game/schedule'
 import { fieldLearningRoutes, isFieldLearningRoute } from './game/field-learning'
-import { admissionComponents, admissionProtection, jobLabel, label, trackLabel, stats } from './game/labels'
+import { admissionComponents, admissionProtection, choiceDescription, jobLabel, label, trackLabel, stats } from './game/labels'
 import { FieldLearningRecord, History, Notebook, qualificationName } from './game/records'
 import { CurrentStory, StoryJournal } from './game/story'
 import { CampusScene, DashboardLinks, SchoolRail, StudentRail } from './game/dashboard'
@@ -207,7 +207,7 @@ function Game({ player, busy, receipt, feedback, commandFailed, run }: {
                 aria-label={choice.label} aria-describedby={choice.description ? `decision-${choice.code}` : undefined}
                 onClick={() => choose(choice.code)}>
                 <span aria-hidden="true">{index + 1}</span><span className="decision-copy"><strong>{choice.label}</strong>
-                {choice.description && <small id={`decision-${choice.code}`}>{choice.description}</small>}</span>
+                {choice.description && <small id={`decision-${choice.code}`}>{choiceDescription(choice.description)}</small>}</span>
               </button>
             </li>)}</ol>}</TimedChoices>}
         </section>
@@ -313,7 +313,7 @@ function SemesterFocus({ player, busy, run, event }: {
       <Heading eyebrow={`${semester}학기 · ${turnInSemester}/${semesterTurns}턴`} title="이번 학기에 집중할 것" level={2} />
       {focus ? <p><strong>{focus}</strong><br /><small>이 학기가 끝날 때까지 매 턴 적용됩니다.</small></p> :
         choices.length ? <ChoiceForm automatic busy={busy} submit="이번 학기 집중 정하기"
-          options={choices.map((choice) => ({ value: choice.code, label: choice.label, detail: choice.description, disabled: !choice.enabled }))}
+          options={choices.map((choice) => ({ value: choice.code, label: choice.label, detail: choiceDescription(choice.description), disabled: !choice.enabled }))}
           onSubmit={(choiceCode) => run('POST', `/events/${event?.code ?? 'TERM_FOCUS'}/choices`, { choiceCode })} /> :
           query.isError ? <Problem error={query.error} retry={() => { void query.refetch() }} /> : <Loading />}
     </section>
@@ -327,7 +327,7 @@ function NarshaTopicPicker({ event, busy, run }: { event: EventView; busy: boole
   const valid = !custom || (topic.trim().length >= 2 && topic.trim().length <= 80 && !/[\x00-\x1f\x7f]/.test(topic.trim()))
   return <ChoiceForm automatic busy={busy} submit="이 주제로 시작" canSubmit={valid} onSelectionChange={setChoiceCode}
     options={event.choices.map((choice) => ({
-      value: choice.code, label: choice.label, detail: choice.description, disabled: !choice.enabled, autoPick: choice.code !== 'NARSHA_CUSTOM',
+      value: choice.code, label: choice.label, detail: choiceDescription(choice.description), disabled: !choice.enabled, autoPick: choice.code !== 'NARSHA_CUSTOM',
     }))} onSubmit={(code) => run('POST', `/events/${event.code}/choices`, {
       choiceCode: code, ...(code === 'NARSHA_CUSTOM' ? { customTopic: topic.trim() } : {}),
     })}>
@@ -376,7 +376,7 @@ function BeforeSchoolPicker({ event, busy, onSubmit }: {
                 ? [...current, choice.code]
                 : current.filter((code) => code !== choice.code))
             }} />
-          <span className="option-copy"><strong>{choice.label}</strong><small>{choice.description}</small></span>
+          <span className="option-copy"><strong>{choice.label}</strong><small>{choiceDescription(choice.description)}</small></span>
           {choice.visited && <span className="option-tag">방문 완료</span>}
         </label>
       })}
@@ -411,7 +411,7 @@ function EventPanel({ event, player, busy, run }: { event: EventView; player: Pl
           onSubmit={(choiceCodes) => run('POST', path, { choiceCodes })} />
       ) : event.required ? (
         <ChoiceForm automatic busy={busy} onSubmit={commit} options={event.choices.map((choice) => ({
-          value: choice.code, label: choice.label, detail: choice.description, disabled: !choice.enabled,
+          value: choice.code, label: choice.label, detail: choiceDescription(choice.description), disabled: !choice.enabled,
           hint: choice.visited ? undefined : choice.reason, tag: choice.visited ? '방문 완료' : choice.apCost > 0 ? `${choice.apCost} AP` : undefined,
         }))} />
       ) : (
@@ -421,7 +421,7 @@ function EventPanel({ event, player, busy, run }: { event: EventView; player: Pl
               <button type="button" className={`btn wide${index === 0 ? ' primary' : ''}`} disabled={busy || !choice.enabled}
                 onClick={() => choose(choice.code)}>{choice.label}{choice.apCost > 0 ? ` · ${choice.apCost} AP` : ''}</button>
               {fieldLearning && isFieldLearningRoute(choice.code) && <small className="field-option">{fieldLearningRoutes[choice.code].preview}</small>}
-              {choice.description && !fieldLearning && <small className="field-option">{choice.description}</small>}
+              {choice.description && !fieldLearning && <small className="field-option">{choiceDescription(choice.description)}</small>}
               {choice.reason && <small className="lock-note">{choice.reason}</small>}
             </div>)}
           </div>}</TimedChoices>

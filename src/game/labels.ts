@@ -4,6 +4,26 @@ import { fieldLearningRoutes } from './field-learning'
 
 export const stats: Record<Stat, string> = { P: '프로그래밍', F: '프론트엔드', B: '백엔드', I: '인공지능', EN: '영어', A: '학업', G: '성적', C: '의사소통', H: '체력', S: '스트레스' }
 
+export function choiceDescription(description?: string) {
+  const effect = description?.match(/^게임용 선택 효과:\s*\{([^{}]*)\}\s*$/)
+  if (!effect) return description
+  if (!effect[1].trim()) return '능력치 변화 없음'
+
+  const changes = new Map<string, number>()
+  for (const pair of effect[1].split(',')) {
+    const stat = pair.trim().match(/^([A-Z]+)\s*=\s*([+-]?\d+)$/)
+    if (!stat || !Object.hasOwn(stats, stat[1])) return description
+    changes.set(stat[1], Number(stat[2]))
+  }
+  return Object.entries(stats)
+    .filter(([code]) => changes.has(code))
+    .map(([code, name]) => {
+      const amount = changes.get(code)!
+      return `${name} ${amount > 0 ? '+' : ''}${amount}`
+    })
+    .join(' · ')
+}
+
 const labels: Record<string, string> = {
   ...companyNames,
   SOFTWARE: '소프트웨어개발과', UNIVERSITY: '진학 준비', EMPLOYMENT: '취업', UNEMPLOYED: '다시 취업 준비', INDIE_DEV: '개인 개발 준비',

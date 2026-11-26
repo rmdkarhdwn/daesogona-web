@@ -530,5 +530,5 @@ function Ending({ player, history, loadingHistory }: { player: PlayerView; histo
     </>
   )
   if ('stage' in summary || !player.year || summary.schoolStatus === 'WITHDRAWN' || player.endReason === 'WITHDRAWAL') return ending
-  return <GraduationReplay id={player.id} name={player.name} summary={summary} history={history} loading={loadingHistory}>{ending}</GraduationReplay>
+  return <GraduationReplay id={player.id} name={player.name} ending={result.data} summary={summary} history={history} loading={loadingHistory}>{ending}</GraduationReplay>
 }

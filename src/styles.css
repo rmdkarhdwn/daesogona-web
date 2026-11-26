@@ -440,23 +440,56 @@ input::placeholder { color: var(--muted); }
 }
 
 .memory-screen {
-  width: min(36rem, calc(100% - 2rem)); max-height: 92dvh; overflow: auto;
-  padding: 0; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 4px;
+  position: fixed; inset: 0; box-sizing: border-box; margin: 0; width: 100%; height: 100dvh;
+  max-width: none; max-height: none; padding: 0; border: 0; background: #090e12; color: #f8f3df; overflow: auto;
 }
-.memory-screen::backdrop { background: rgb(7 14 18 / 95%); }
-.memory-heading, .memory-controls { display: flex; align-items: center; gap: .5rem; padding: .75rem 1.25rem; }
-.memory-heading h2 { flex: 1; font-size: 1rem; }
-.memory-photo { display: block; width: 100%; height: clamp(5rem, 22dvh, 12rem); object-fit: cover; object-position: center 65%; }
-.memory-caption { padding: 1.5rem; min-height: 9rem; overflow-wrap: anywhere; animation: memory-fade .55s ease-out both; }
-.memory-caption small { color: var(--accent); }
-.memory-caption h3 { font-size: .94rem; font-weight: 500; color: var(--muted); margin: .65rem 0 .25rem; }
-.memory-caption p { font: 600 clamp(1.25rem, 4.5vw, 1.9rem)/1.4 Georgia, 'Nanum Myeongjo', serif; }
-.memory-track { display: flex; gap: 3px; margin: 0 1.25rem; }
-.memory-track span { flex: 1; height: 3px; background: var(--divider); }
-.memory-track .lit { background: var(--accent); }
-.memory-controls small { margin-right: auto; color: var(--muted); }
-@keyframes memory-fade { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
-@media (prefers-reduced-motion: reduce) { .memory-caption { animation: none; } }
+.memory-screen::backdrop { background: #090e12; }
+.film-shell {
+  min-height: 100%; display: grid; grid-template-rows: auto 1fr auto;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+.memory-heading, .film-footer { padding: .35rem clamp(1rem, 5vw, 5rem); }
+.memory-heading, .memory-controls { display: flex; align-items: center; gap: .75rem; }
+.memory-heading h2 { flex: 1; font-size: .88rem; font-weight: 550; color: #d8ddd6; }
+.film-button { min-height: 44px; padding: .45rem .8rem; border: 0; color: #cbd5ce; background: transparent; }
+.film-button:hover, .film-button:focus-visible { color: white; background: #28332f; }
+.film-next { font-weight: 700; color: #e6ddad; }
+.film-stage {
+  isolation: isolate; position: relative; overflow: hidden; display: grid; align-items: end;
+  min-height: min(20rem, 48dvh); background: #10171b; animation: film-cut .7s ease-out both;
+}
+.film-stage::after {
+  content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(0deg, #080e14f5, #10171cbd 22%, transparent 63%);
+}
+.film-plate { position: absolute; inset: 0; z-index: -2; width: 100%; height: 100%; object-fit: cover;
+  animation: film-camera 5s ease-out both; }
+.film-stage[data-reverse=true] .film-plate { animation-direction: reverse; }
+.memory-caption {
+  padding: clamp(1rem, 4vh, 3rem) clamp(1.2rem, 7vw, 8rem); overflow-wrap: anywhere;
+  text-shadow: 0 1px 8px #03090b; animation: film-subtitle .72s ease-out both;
+}
+.memory-caption small { color: #f0d59e; letter-spacing: .08em; font-size: .82rem; }
+.memory-caption h3 { margin: .35em 0 .15em; font: 650 clamp(1.5rem, 3.5vw, 3.3rem)/1.18 Georgia, 'AppleMyungjo', 'Nanum Myeongjo', serif; }
+.memory-caption p { margin: .4em 0 0; font-size: clamp(1rem, 1.7vw, 1.4rem); line-height: 1.55; max-width: 48em; }
+.film-stage[data-finale=true] .memory-caption { padding-bottom: clamp(2rem, 9vh, 6rem); text-align: center; }
+.film-stage[data-finale=true] .memory-caption p { margin-inline: auto; }
+.memory-track { display: flex; gap: 4px; padding-top: .45rem; }
+.memory-track span { flex: 1; height: 2px; overflow: hidden; background: #394442; }
+.memory-track i { display: block; height: 100%; transform: scaleX(0); transform-origin: left; background: #e4c888; }
+.memory-track [data-state=past] i { transform: none; }
+.memory-track [data-state=now] i { animation: film-elapsed linear both; }
+.memory-controls small { margin-right: auto; font-variant-numeric: tabular-nums; color: #c9cdc4; }
+@keyframes film-camera { from { transform: scale(1.02) translateX(.6%); } to { transform: scale(1.12) translateX(-1%); } }
+@keyframes film-cut { from { opacity: .08; } to { opacity: 1; } }
+@keyframes film-subtitle { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+@keyframes film-elapsed { from { transform: scaleX(0); } to { transform: none; } }
+.memory-screen[data-paused=true] :is(.film-plate, .memory-track i) { animation-play-state: paused; }
+@media (max-width: 600px) { .memory-caption { padding-bottom: 2rem; } .film-plate { object-position: 52% center; } }
+@media (prefers-reduced-motion: reduce) {
+  .memory-screen :is(.film-stage, .film-plate, .memory-caption, .memory-track i) { animation: none; }
+  .memory-track [data-state=now] { background: #e4c888; }
+}
 .graduation-result { scroll-margin-top: 6rem; }
 .graduation-result > button { margin-top: .5rem; }
 

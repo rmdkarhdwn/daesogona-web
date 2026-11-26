@@ -1,13 +1,21 @@
-import type { GraduationSummary, HistoryEntry } from '../api/contracts'
+import type { EndingView, GraduationSummary, HistoryEntry } from '../api/contracts'
 import { fieldLearningRoutes, isFieldLearningRoute } from './field-learning'
 import { jobLabel, label, trackLabel } from './labels'
 
-export interface GraduationMemory { when: string; title: string; text: string }
+export type Shot = 'campus' | 'classroom' | 'workbench' | 'commute' | 'notebook'
+export interface GraduationMemory { when: string; title: string; text: string; shot: Shot }
+export type Finale = Pick<EndingView, 'title' | 'selectedPath' | 'acceptedCompany' | 'acceptedRole'>
 
-export function graduationMemories(summary: GraduationSummary, history: HistoryEntry[]): GraduationMemory[] {
+const sequence = ['first', 'narsha1', 'narsha2', 'field', 'change', 'application', 'major', 'track', 'work', 'admission', 'focus']
+const shots: Record<string, Shot> = {
+  first: 'classroom', focus: 'classroom', major: 'classroom', track: 'workbench', change: 'notebook',
+  narsha1: 'notebook', narsha2: 'workbench', work: 'workbench', application: 'notebook', field: 'commute',
+}
+
+export function graduationMemories(summary: GraduationSummary, history: HistoryEntry[], ending: Finale): GraduationMemory[] {
   const moments = new Map<string, GraduationMemory & { year: number; order: number }>()
   function add(key: string, year: number, order: number, when: string, title: string, text: string) {
-    moments.set(key, { year, order, when, title, text })
+    moments.set(key, { year, order, when, title, text, shot: shots[key] ?? 'campus' })
   }
   const projects = summary.narshaProjects ?? (summary.narsha ? [summary.narsha] : [])
   if (summary.initialCareerCode) add('first', 0, 0, '처음 품은 꿈', '희망 직무를 정한 날', jobLabel(summary.initialCareerCode))
@@ -47,14 +55,27 @@ export function graduationMemories(summary: GraduationSummary, history: HistoryE
       if (project) record(key, project.title, project.text)
       else if (choice === 'SKIP') record(key, '나르샤 참여를 결정한 날', '이번 프로젝트에는 참여하지 않기로 했다.')
     } else if (log.kind === 'JOB_APPLY' || log.kind === 'APPLICATION') {
-      record('apply-' + code, '지원서를 냈다', label(code))
+      record('application', '지원서를 냈다', label(code))
     } else if (log.kind === 'PORTFOLIO_REGISTER' || (log.kind === 'ACTION' && code === 'PORTFOLIO_ADD' && choice)) {
       const work = code === 'PORTFOLIO_ADD' ? choice! : code
-      record('work-' + work, '포트폴리오에 남긴 작품', label(work))
+      record('work', '포트폴리오에 남긴 작품', label(work))
     }
   }
-  const path = summary.nextPath ?? summary.path
-  const company = summary.acceptedCompany ?? summary.offer?.companyCode
-  if (company || path) add('graduation', 4, 0, '졸업을 앞두고', '마지막으로 고른 길', company ? label(company) + '의 채용 제안 수락' : label(path))
-  return [...moments.values()].sort((a, b) => a.year - b.year || a.order - b.order)
+  const company = ending.acceptedCompany ?? summary.acceptedCompany ?? summary.offer?.companyCode
+  const role = ending.acceptedRole ?? summary.acceptedRole ?? summary.offer?.role
+  const path = ending.selectedPath ?? summary.nextPath ?? summary.path
+  const closing: GraduationMemory = {
+    when: '졸업, 그 다음 날', title: ending.title,
+    shot: company ? 'commute' : path === 'INDIE' || path === 'INDIE_DEV' ? 'workbench' : 'notebook',
+    text: company ? [label(company) + '의 채용 제안 수락', role && jobLabel(role)].filter(Boolean).join(' · ')
+      : path === 'UNEMPLOYED' || path === 'RETRY_JOB' ? '수첩을 펼쳤다. 이번에는 어디에 지원해 볼까.'
+        : path ? label(path) : '학교생활의 마지막 장을 덮었다.',
+  }
+  const highlights = sequence.flatMap(key => {
+    const item = moments.get(key)
+    return item ? [item] : []
+  }).slice(0, 6).sort((a, b) => a.year - b.year || a.order - b.order)
+
+  return [{ when: '졸업식 아침', title: '운동장 너머로', text: '교문을 나서기 전, 처음 들어오던 날을 떠올렸다.', shot: 'campus' },
+    ...highlights, closing]
 }

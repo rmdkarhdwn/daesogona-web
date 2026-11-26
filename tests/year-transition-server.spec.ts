@@ -42,8 +42,12 @@ test('겨울방학 후 학과와 수업을 화면에서 확정하고 각 학년�
       await expect(page.getByRole('dialog')).toBeHidden()
       await page.reload()
       await endTurn.click()
-      const confirm = page.getByRole('button', { name: '다음 턴으로' })
-      if (await confirm.isVisible()) await confirm.click()
+      if (year === 3) {
+        const hiring = page.getByRole('dialog', { name: '중요한 결정' })
+        await expect(hiring.getByRole('heading', { name: '기업 지원' })).toBeVisible()
+        await hiring.getByRole('button', { name: '이번 턴 선택 건너뛰기' }).click()
+        await page.getByRole('button', { name: '다음 턴으로' }).click()
+      }
       await expect.poll(() => api(request, base)).toMatchObject({
         year, turn: 2, [year === 2 ? 'major' : 'track']: option.code, school: { pendingChoice: null },
       })

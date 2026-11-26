@@ -132,6 +132,7 @@ export interface ProgressView {
 }
 export interface HistoryEntry {
   logId: number
+  dailyEvent?: { title: string; choiceLabel: string }
   evidenceJson?: string | null
   year: number
   turn: number
@@ -184,7 +185,7 @@ export interface AssessmentResult {
   gradeBefore: number
   gradeAfter: number
 }
-export interface StoryView { entries: StoryEntry[]; history?: HistoryEntry[] }
+export interface StoryView { selectedPlacement?: FieldLearningRoute; entries: StoryEntry[]; history?: HistoryEntry[] }
 
 export type JobStep = 'CODING' | 'INTERVIEW' | 'RESULT'
 export interface InterviewQuestion { id?: string; questionId?: string; question: string; source: 'AI' | 'MOCK' | 'FALLBACK'; kind: 'SCHOOL' | 'COMPANY' }

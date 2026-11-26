@@ -1,4 +1,7 @@
-interface ActivityScene {
+import type { FieldLearningRoute } from '../api/contracts.ts'
+import { seniorScene } from './senior-activities.ts'
+
+export interface ActivityScene {
   title: string
   situation: string
   choices: Record<string, string>
@@ -68,7 +71,8 @@ const aiFollowUp: ActivityScene = {
   choices: { MARGIN_TRACE: '두 사진의 입력값을 나란히 적어 보기', MARGIN_ASK: '결과가 달라진 전처리 단계를 짚어 질문하기' },
 }
 
-export function yearActivityScene(year: number, code: string, major?: string | null) {
+export function yearActivityScene(year: number, code: string, major?: string | null, track?: string | null, placement?: FieldLearningRoute) {
+  if (year === 3) return seniorScene(code, track, placement)
   if (year !== 2) return
   if (major === 'AI' && code === 'DAILY_FEEDBACK') return aiReview
   if (major === 'AI' && code === 'DAILY_MARGIN') return aiFollowUp
@@ -77,12 +81,14 @@ export function yearActivityScene(year: number, code: string, major?: string | n
 
 export function availableInYear(year: number, code: string) {
   if (code === 'DAILY_ART_SPORTS') return year === 1
+  if (year === 3 && ['DAILY_ROOMMATE', 'DAILY_FRIEND', 'DAILY_SECOND_LAP', 'DAILY_TEST_CASE', 'DAILY_MARGIN',
+    'DAILY_READING', 'DAILY_NARSHA', 'DAILY_PRODUCT', 'DAILY_NOBEL', 'DAILY_GLOBAL_PREP', 'DAILY_CAMP_YEAR1', 'DAILY_CAMP_YEAR2'].includes(code)) return false
   // In year two, leave room for the major, mentoring and project events.
   return year !== 2 || !['DAILY_ROOMMATE', 'DAILY_FRIEND', 'DAILY_SECOND_LAP', 'DAILY_TEST_CASE'].includes(code)
 }
 
-export function forSchoolYear<T extends { code: string; title: string; situation: string; choices: { code: string; label: string }[] }>(year: number, event: T, major?: string | null): T {
-  const scene = yearActivityScene(year, event.code, major)
+export function forSchoolYear<T extends { code: string; title: string; situation: string; choices: { code: string; label: string }[] }>(year: number, event: T, major?: string | null, track?: string | null, placement?: FieldLearningRoute): T {
+  const scene = yearActivityScene(year, event.code, major, track, placement)
   if (!scene) return event
   return { ...event, title: scene.title, situation: scene.situation,
     choices: event.choices.map(choice => ({ ...choice, label: scene.choices[choice.code] ?? choice.label })) }

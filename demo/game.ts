@@ -1,3 +1,4 @@
+import { seniorFocus } from '../src/game/senior-activities.ts'
 import { availableInYear, forSchoolYear, yearActivityScene } from '../src/game/year-activities.ts'
 import { createHash, randomInt, randomUUID } from 'node:crypto'
 import { applicationTurn, codingTurn, interviewTurn, resultTurn, semesterTurns, yearTurns } from '../src/game/schedule.ts'
@@ -198,6 +199,11 @@ function rememberEvent(g: DemoGame, key: string, event: typeof stressSupportEven
   draws[key] = { eventCode: event.code, situation: event.situation, choiceCodes: event.choices.map((choice) => choice.code) }
 }
 
+function confirmedPlacement(g: DemoGame) {
+  const field = g.fieldLearning
+  return field && ['SELECTED', 'PREPARED', 'COMPLETED'].includes(field.status) ? field.route : undefined
+}
+
 function drawSchoolEvent(g: DemoGame) {
   if (!isSchool(g.view) || g.view.vacation) return undefined
   const { year, turn } = g.view
@@ -207,14 +213,14 @@ function drawSchoolEvent(g: DemoGame) {
   const previous = (turn - 1) % semesterTurns !== 0 && g.history.find(entry =>
     entry.year === year && entry.turn === turn - 1 && entry.dailyEvent)
   const followUp = previous && schoolFollowUp(previous.subjectCode, previous.choiceCode)
-  if (followUp && availableInYear(year, followUp.code)) return forSchoolYear(year, followUp, g.view.major)
+  if (followUp && availableInYear(year, followUp.code)) return forSchoolYear(year, followUp, g.view.major, g.view.track, confirmedPlacement(g))
   const firstLab = year === 1 && turn === 2 && g.view.semesterFocus
   if (!firstLab && random.nextInt(100) >= 55) return undefined
   const pool = [...dailySchoolEvents, ...schoolActivityEvents(year, turn)].filter(event => availableInYear(year, event.code))
   const period = (turn - 1) % semesterTurns + 1
   if ([4, 5, 8, 9, 11].includes(period)) pool.push(dailyExamEvent)
   const record = g.narsha
-  if (record?.schoolYear === year && ['PLANNING', 'MENTORED'].includes(record.status)) {
+  if (year < 3 && record?.schoolYear === year && ['PLANNING', 'MENTORED'].includes(record.status)) {
     pool.push({ ...dailyNarshaEvent, situation: `‘${record.topicLabel}’ 팀이 남은 기능과 시연 범위를 두고 의견을 나눕니다.` })
   }
   const saved = g.eventDraws?.[key]
@@ -225,7 +231,7 @@ function drawSchoolEvent(g: DemoGame) {
     .filter((choice): choice is (typeof selected.choices)[number] => choice !== undefined)
   const drawn = { ...selected, choices: ordered?.length === selected.choices.length ? ordered : random.shuffled(selected.choices) }
   rememberEvent(g, key, drawn)
-  return forSchoolYear(year, drawn, g.view.major)
+  return forSchoolYear(year, drawn, g.view.major, g.view.track, confirmedPlacement(g))
 }
 
 function applyStressPressure(g: DemoGame): StressLoad {
@@ -511,7 +517,7 @@ function chooseEvent(g: DemoGame, code: string, choiceCode: string, customTopic?
     details = { fieldLearningRoute: choiceCode, fieldLearning: g.fieldLearning }
     resultCode = 'FIELD_LEARNING_RECORDED'
   } else if (isFocus) {
-    g.view.semesterFocus = { code: choiceCode, label: choice.label, semester: g.view.turn <= semesterTurns ? 1 : 2 }
+    g.view.semesterFocus = { code: choiceCode, label: (g.view.year === 3 && seniorFocus[choiceCode]) || choice.label, semester: g.view.turn <= semesterTurns ? 1 : 2 }
     details = { ...g.view.semesterFocus }
     resultCode = 'FOCUS_SELECTED'
   } else if (code === 'VACATION' && before.vacation) {
@@ -566,7 +572,7 @@ function chooseEvent(g: DemoGame, code: string, choiceCode: string, customTopic?
   if (admissionResult) entry.admission = admissionResult
   if (stress) entry.stressEvent = stress
   if (code.startsWith('DAILY_')) {
-    const variant = yearActivityScene(before.year, code, before.major)
+    const variant = yearActivityScene(before.year, code, before.major, before.track, confirmedPlacement(g))
     entry.dailyEvent = { title: event.title, choiceLabel: choice.label, situation: event.situation,
       outcome: variant ? undefined : choice.outcome ?? choiceOutcome(event.code, choice.code) }
   }

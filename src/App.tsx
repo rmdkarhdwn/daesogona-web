@@ -19,6 +19,7 @@ import { CurrentStory, StoryJournal } from './game/story'
 import { CampusScene, DashboardLinks, SchoolRail, StudentRail } from './game/dashboard'
 import { InterviewForm } from './game/interview'
 import { isNarshaParticipation, NarshaParticipation } from './game/narsha-participation'
+import { seniorFocus } from './game/senior-activities'
 import { availableInYear, forSchoolYear } from './game/year-activities'
 import { EventSource, NarshaRecord } from './game/school-life'
 import { ChoiceCountdown, ChoiceTimerScope, randomChoice, TimedChoices, useChoiceTimer } from './game/choice-timer'
@@ -149,7 +150,7 @@ function Game({ player, busy, receipt, feedback, commandFailed, run }: {
   const entries = story.data?.entries ?? []
   const visible = ordinary && !yearChoice ? (events.data ?? [])
     .filter(event => event.required || availableInYear(player.year, event.code))
-    .map(event => forSchoolYear(player.year, event, player.major)) : []
+    .map(event => player.school ? forSchoolYear(player.year, event, player.major, player.track, story.data?.selectedPlacement) : event) : []
   const requiredEvents = visible.filter((event) => event.required)
   const eventOptions = requiredEvents.length ? requiredEvents : visible
   const current = eventOptions.find((event) => event.code === selectedEvent) ?? eventOptions[0]
@@ -247,7 +248,7 @@ function Game({ player, busy, receipt, feedback, commandFailed, run }: {
   )
 
   return (
-    <ChoiceTimerScope paused={busy || commandFailed || Boolean(dialog)} resetKey={`${player.id}:${player.version}:${player.phase}`}>
+    <ChoiceTimerScope paused={busy || commandFailed || Boolean(dialog) || (canAct && recruitment.hasAction)} resetKey={`${player.id}:${player.version}:${player.phase}`}>
     <Frame player={player} timeControls={timeControls} footer={<Journey player={player} />}
       saveStatus={busy ? '저장 중' : commandFailed ? '저장 상태 확인' : '저장됨'}>
       <div className="story-layout">
@@ -259,8 +260,9 @@ function Game({ player, busy, receipt, feedback, commandFailed, run }: {
           <section className="current-choices" id="current-choices" aria-labelledby="choices-title">
             <h2 className="section-label" id="choices-title">선택지</h2>
             {!dialog && feedback}
+            {hiring && canAct && (recruitment.hasAction || recruitment.pending || Boolean(recruitment.error) || recruitment.applications.length > 0) &&
+              <Recruitment player={player} busy={busy} run={run} data={recruitment} />}
             {panel && <section className="story-card choice-card" id="current-selection" aria-label="지금 열린 선택">{panel}</section>}
-            {hiring && canAct && <Recruitment player={player} busy={busy} run={run} data={recruitment} />}
             {school && !player.vacation && !player.school?.vacationPending && !player.school?.practiceRemaining && (!hasRequired || focusEvent) &&
               <SemesterFocus key={`${player.year}-${player.turn <= semesterTurns ? 1 : 2}`}
                 player={player} busy={busy} run={run} event={focusEvent} />}
@@ -315,7 +317,8 @@ function SemesterFocus({ player, busy, run, event }: {
 }) {
   const query = usePlayerData<EventView>(player.id, '/events/TERM_FOCUS', !event && !player.semesterFocus && !player.school)
   const stored = player.school?.semesterFocus
-  const focus = player.semesterFocus?.label ?? (stored ? stats[stored as keyof typeof stats] : undefined)
+  const focusCode = player.semesterFocus?.code ?? ({ P: 'PROGRAMMING', A: 'ACADEMIC', C: 'COMMUNICATION' }[stored ?? ''])
+  const focus = (player.year === 3 && focusCode ? seniorFocus[focusCode] : undefined) ?? player.semesterFocus?.label ?? (stored ? stats[stored as keyof typeof stats] : undefined)
   const semester = player.turn <= semesterTurns ? 1 : 2
   const turnInSemester = (player.turn - 1) % semesterTurns + 1
   const choices = (event ?? query.data)?.choices ?? []
@@ -324,7 +327,7 @@ function SemesterFocus({ player, busy, run, event }: {
       <Heading eyebrow={`${semester}학기 · ${turnInSemester}/${semesterTurns}턴`} title="이번 학기에 집중할 것" level={2} />
       {focus ? <p><strong>{focus}</strong><br /><small>이 학기가 끝날 때까지 매 턴 적용됩니다.</small></p> :
         choices.length ? <ChoiceForm automatic busy={busy} submit="이번 학기 집중 정하기"
-          options={choices.map((choice) => ({ value: choice.code, label: choice.label, detail: choiceDescription(choice.description), disabled: !choice.enabled }))}
+          options={choices.map((choice) => ({ value: choice.code, label: (player.year === 3 && seniorFocus[choice.code]) || choice.label, detail: choiceDescription(choice.description), disabled: !choice.enabled }))}
           onSubmit={(choiceCode) => run('POST', `/events/${event?.code ?? 'TERM_FOCUS'}/choices`, { choiceCode })} /> :
           query.isError ? <Problem error={query.error} retry={() => { void query.refetch() }} /> : <Loading />}
     </section>

@@ -1,6 +1,7 @@
 import { ApiError, request } from './client'
-import { playerPath, type HistoryEntry, type PlayerView, type StoryEntry, type StoryView, type StressLoad } from './contracts'
+import { playerPath, type FieldLearningRoute, type HistoryEntry, type PlayerView, type StoryEntry, type StoryView, type StressLoad } from './contracts'
 
+import { selectedPlacement, seniorFocus } from '../game/senior-activities'
 import { yearActivityScene } from '../game/year-activities'
 import { calendarResult, displayLabel, jobLabel, label } from '../game/labels'
 
@@ -32,7 +33,10 @@ function savedAction(log: NarrativeLog) {
     case 'COURSE_ATTEND': return `${label(log.subjectCode)} 수업 출석`
     case 'COURSE_EXAM': return `${label(log.subjectCode)} 시험 응시`
     case 'JOB_APPLY': return `${label(log.subjectCode)} 지원`
-    case 'JOB_STEP': return '채용 전형 진행'
+    case 'JOB_STEP': {
+      const step = log.subjectCode.split(':').at(-1)
+      return [displayLabel(step) ?? '채용 전형', displayLabel(log.resultCode)].filter(Boolean).join(' · ')
+    }
     case 'GRADUATE': return '졸업 후 진로 확정'
     case 'NARSHA_ACTION': return log.subjectCode === 'MENTORING' ? '나르샤 멘토링 참여' : '나르샤 프로젝트 작업'
     default: return ''
@@ -48,13 +52,13 @@ function readableScene(text: string | null | undefined, log: NarrativeLog) {
   return displayLabel(text)
 }
 
-function toStoryEntry(log: NarrativeLog, major?: string | null): StoryEntry | undefined {
+function toStoryEntry(log: NarrativeLog, player: PlayerView, placement?: FieldLearningRoute): StoryEntry | undefined {
   const evidence = readEvidence(log.evidenceJson)
-  const variant = yearActivityScene(log.year, log.subjectCode, major)
+  const variant = yearActivityScene(log.year, log.subjectCode, player.major, player.track, placement)
   const choice = variant?.choices[log.choiceCode ?? '']
   const action = savedAction(log)
   if (!log.narrativeStatus && !log.narrative && !evidence.scene && !action) return
-  const focus = { PROGRAMMING: '프로그래밍', ACADEMIC: '학업', COMMUNICATION: '의사소통' }[log.choiceCode ?? '']
+  const focus = (log.year === 3 ? seniorFocus[log.choiceCode ?? ''] : undefined) ?? { PROGRAMMING: '프로그래밍', ACADEMIC: '학업', COMMUNICATION: '의사소통' }[log.choiceCode ?? '']
   const summary = log.subjectCode?.startsWith('FOCUS_') && focus ? `학기 목표 선택 · ${focus}` :
     choice || displayLabel(evidence.choiceLabel) || action || undefined
   return {
@@ -91,11 +95,12 @@ export async function loadStory(player: PlayerView, signal: AbortSignal): Promis
       text: '대소고 1학년 1학기 학교생활을 시작했다.', dialogue: [], source: 'FALLBACK', status: 'READY' })
   }
   const history = await readHistory(base, signal)
+  const placement = selectedPlacement(history)
   for (const log of history) {
-    const entry = toStoryEntry(log, player.major)
+    const entry = toStoryEntry(log, player, placement && log.logId > placement.logId ? placement.route : undefined)
     if (entry) entries.push(entry)
   }
-  return { entries, history: player.phase === 'ENDED' ? history : undefined }
+  return { entries, selectedPlacement: placement?.route, history: player.phase === 'ENDED' ? history : undefined }
 }
 
 async function readHistory(base: string, signal: AbortSignal) {

@@ -1,7 +1,8 @@
 import { expect, test } from '@playwright/test'
 import { createGame } from '../demo/game'
 import { schoolActivityEvents } from '../demo/school-life'
-import { forSchoolYear } from '../src/game/year-activities'
+import { dailySchoolEvents, dailyExamEvent, dailyNarshaEvent } from '../demo/data'
+import { availableInYear, forSchoolYear } from '../src/game/year-activities'
 
 test('악기·스포츠는 1학년 활동이고 전공 리뷰는 학년과 학과에 따라 달라진다', () => {
   for (const year of [1, 2, 3]) {
@@ -55,4 +56,51 @@ test('기존 서버가 2학년에 악기 활동을 보내도 선택 대기 없�
   await activity.click()
   await page.reload()
   await expect(page.locator('#current-story')).toContainText('사진을 다시 나누고 분류 결과 비교하기')
+})
+
+test('3학년 공통 활동은 전공·취업 장면으로 바뀌거나 추첨에서 빠진다', () => {
+  const shared = [...dailySchoolEvents, dailyExamEvent, dailyNarshaEvent, ...schoolActivityEvents(1, 8), ...schoolActivityEvents(2, 18)]
+  for (const event of shared.filter(event => availableInYear(3, event.code))) {
+    const senior = forSchoolYear(3, event, 'AI', 'WEB')
+    expect(senior.title, event.code).not.toBe(event.title)
+    expect(senior.choices.map(choice => choice.code)).toEqual(event.choices.map(choice => choice.code))
+    expect(senior.choices.every((choice, i) => choice.label !== event.choices[i].label)).toBe(true)
+  }
+  const review = dailySchoolEvents.find(event => event.code === 'DAILY_FEEDBACK')!
+  const tracks = ['FE', 'BE', 'WEB', 'MOBILE', 'AI', 'GAME', 'NETWORK']
+  expect(new Set(tracks.map(track => forSchoolYear(3, review, 'AI', track).title)).size).toBe(tracks.length)
+})
+
+test('현장실습 회고는 선발 기록 이후에만 국내·해외 경로로 나뉜다', async ({ page }) => {
+  const { view } = createGame({ name: '현장실습 회고', edition: 'MILD' }, true)
+  Object.assign(view, { phase: 'SCHOOL', year: 3, turn: 8, track: 'WEB', school: { semesterFocus: 'P' } })
+  const journal = { kind: 'EVENT', subjectCode: 'DAILY_REFLECTION', choiceCode: 'REFLECT_NOTE', resultCode: 'COMPLETED',
+    evidenceJson: JSON.stringify({ scene: '작업 기록을 정리했습니다.' }), year: 3 }
+  let route = 'SILICON_VALLEY'
+  let result = 'NOT_SELECTED'
+  await page.route('**/api/v1/**', req => {
+    const path = new URL(req.request().url()).pathname
+    const ok = (data: unknown) => req.fulfill({ json: { success: true, data } })
+    if (path.endsWith('/history')) return ok({ items: [
+      { ...journal, logId: 11, turn: 1 }, { logId: 12, turn: 3, year: 3, subjectCode: 'J01', choiceCode: route, resultCode: result },
+      { ...journal, logId: 13, turn: 5 },
+    ] })
+    if (path.endsWith('/events')) return ok([{ code: journal.subjectCode, title: '오늘의 회고', situation: '', required: false,
+      choices: [{ code: 'REFLECT_NOTE', label: '기록', enabled: true, apCost: 0 }] }])
+    if (path.endsWith('/progress')) return ok({ projects: [], qualifications: [], snapshots: [] })
+    return ok(path.endsWith(view.id) ? view : [])
+  })
+  await page.addInitScript(id => sessionStorage.setItem('daesogo.playback.' + id, 'paused'), view.id)
+  for (const [choice, status, title] of [
+    ['SILICON_VALLEY', 'NOT_SELECTED', '공고의 한 줄과 내 경험 연결하기'],
+    ['SILICON_VALLEY', 'SELECTED', '시차가 있는 팀에 남길 인계 메모'],
+    ['DOMESTIC', 'SELECTED', '기업 멘토에게 건넬 작업 일지'],
+  ]) {
+    route = choice
+    result = status
+    await page.goto('/play/' + view.id)
+    await expect(page.locator('#current-selection h2')).toHaveText(title)
+    await expect(page.locator('#current-story')).toContainText(title)
+    await expect(page.locator('#current-story .recent-entry').last()).toContainText('공고의 한 줄과 내 경험 연결하기')
+  }
 })

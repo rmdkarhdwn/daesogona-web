@@ -1,5 +1,6 @@
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
+import { selectedPlacement } from './senior-activities'
 import { yearActivityScene } from './year-activities'
 import { readEvidence } from '../api/story'
 import { request } from '../api/client'
@@ -89,6 +90,7 @@ export function History({ player }: { player: PlayerView }) {
   })
   const progress = usePlayerData<ProgressView>(player.id, '/progress')
   const entries = history.data?.pages.flatMap((page) => page.items).slice().reverse()
+  const placement = selectedPlacement(entries ?? [])
   return (
     <>
       {progress.data?.snapshots.length ? <details className="timeline">
@@ -102,13 +104,14 @@ export function History({ player }: { player: PlayerView }) {
         entries?.length ? (
           <ol className="history-list">{entries.map((entry) => {
             const evidence = readEvidence(entry.evidenceJson)
-            const variant = yearActivityScene(entry.year, entry.subjectCode, player.major)
-            const choice = variant?.choices[entry.choiceCode ?? ''] ?? displayLabel(evidence.choiceLabel) ?? displayLabel(entry.choiceCode)
+            const variant = yearActivityScene(entry.year, entry.subjectCode, player.major, player.track,
+              placement && entry.logId > placement.logId ? placement.route : undefined)
+            const choice = entry.dailyEvent?.choiceLabel ?? variant?.choices[entry.choiceCode ?? ''] ?? displayLabel(evidence.choiceLabel) ?? displayLabel(entry.choiceCode)
             return (
               <li key={entry.logId}>
                 <span>{entry.beforeSchoolDay ? `비포스쿨 ${entry.beforeSchoolDay}일` : entry.year ? `${entry.year}학년 ${entry.turn}턴` : '입학 전형'}</span>
                 <strong>{entry.resultCode === 'FIELD_LEARNING_PREPARED' ? '현장학습 준비 완료' :
-                  entry.resultCode === 'FIELD_LEARNING_COMPLETED' ? '현장학습 참가 완료' : calendarResult(entry.resultCode) ?? variant?.title ?? displayLabel(evidence.title) ?? displayLabel(entry.subjectCode) ?? '학교생활 기록'}</strong>
+                  entry.resultCode === 'FIELD_LEARNING_COMPLETED' ? '현장학습 참가 완료' : calendarResult(entry.resultCode) ?? entry.dailyEvent?.title ?? variant?.title ?? displayLabel(evidence.title) ?? displayLabel(entry.subjectCode) ?? '학교생활 기록'}</strong>
                 {choice && <small>{choice}</small>}
                 {entry.admission && <small>{label(entry.admission.admissionTrack)} · {entry.admission.score}점 · {label(entry.resultCode)}
                   {entry.admission.minimumScore !== undefined && ` · 통과 기준 ${entry.admission.minimumScore}점`}</small>}

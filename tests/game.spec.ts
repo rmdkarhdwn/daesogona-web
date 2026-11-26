@@ -130,7 +130,7 @@ async function settleSchoolChoices(page: Page, year: number, turn: number, major
   await resolveStress(page)
   if (year === 2 && turn === 1) await decide(page, major)
   if (year === 3 && turn === 1) await decide(page, track)
-  if ((year > 1 && turn === 1) || turn === semesterTurns + 1) await setFocus(page, '희망 직무 연습')
+  if ((year > 1 && turn === 1) || turn === semesterTurns + 1) await setFocus(page, year === 3 ? '지원 직무 과제 연습' : '희망 직무 연습')
   if (year === 1 && turn === 8) await decide(page, '기숙사 생활 통합 시스템')
   if (year === 2 && turn === 2) {
     await decide(page, 'AI 영상 개인정보 보호 시스템')
@@ -170,7 +170,7 @@ async function reachCounseling(page: Page, major: string, track: string) {
 async function finishWithoutOffer(page: Page) {
   for (let turn = applicationTurn; turn <= yearTurns; turn++) {
     await expect(page.getByText(`3학년 · ${turn}턴`, { exact: true })).toBeVisible()
-    if (turn === semesterTurns + 1) await setFocus(page, '영어와 글로벌 진로')
+    if (turn === semesterTurns + 1) await setFocus(page, '영어 기술 문서와 업무 메일')
     await advanceRegularTurn(page, turn)
   }
   await expect(choiceHeading(page, '졸업 후 진로')).toBeVisible()
@@ -486,7 +486,7 @@ test('학기 집중과 정규 생활을 이어가고 72턴을 마쳐 채용 제�
     .getByRole('button', { name: '지원 · 1 AP' }).click()
   await expect(page.getByText('웹서비스 개발팀 · 서류 통과')).toBeVisible()
   await advanceRegularTurn(page, applicationTurn)
-  await setFocus(page, '희망 직무 연습')
+  await setFocus(page, '지원 직무 과제 연습')
 
   for (let turn = applicationTurn + 1; turn < codingTurn; turn++) await endTurn(page)
   await prepareRecruitmentCondition(page)

@@ -48,7 +48,7 @@ export function Recruitment({ player, busy, run, data }: { player: PlayerView; b
   return (
     <section className="recruitment story-card" aria-labelledby="recruitment-title">
       <p className="eyebrow">채용 일정</p>
-      <h2 id="recruitment-title">{step?.title ?? (calendar.canApply ? '기업 지원' : '지원 현황')}</h2>
+      <h2 id="recruitment-title">{step && applications.some(item => item.status === step.status) ? step.title : calendar.canApply ? '기업 지원' : '지원 현황'}</h2>
       {player.school && player.turn <= 5 && <p className="muted">기업 지원 1~4턴 · 코딩 테스트 4턴 · 면접 5턴 · 결과 확인 6턴부터</p>}
       {calendar.canApply && (
         <>

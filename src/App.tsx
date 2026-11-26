@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
-import { ApiError, resultReceipt } from './api/client'
+import { ApiError, isTransientConnectionError, resultReceipt } from './api/client'
 import {
   CAMPUS_FINISH_CHOICE, isSchool, playerPath, type YearChoice, type YearTransitionView, type ApplicationView, type CareerPreferenceView, type EndingView, type EventView,
   type MutationResult, type PlayerView,
@@ -49,13 +49,22 @@ export default function App() {
   }
   const busy = Boolean(pending || active)
   const commandFailed = error != null || Boolean(pending && !active)
+  const [waiting, setWaiting] = useState(false)
+  useEffect(() => {
+    if (!active || !pending) { setWaiting(false); return }
+    const timer = window.setTimeout(() => setWaiting(true), 4000)
+    return () => window.clearTimeout(timer)
+  }, [active, pending])
   const feedback = (
     <>
-      {pending && !active && <div className="problem" role="status">
-        <p>응답을 확인하지 못했습니다. 저장된 요청을 다시 보내 진행 상태를 확인할 수 있습니다.</p>
+      {active && pending && waiting && <p className="notice" role="status">서버 응답을 기다리고 있습니다. 연결이 잠시 끊기면 같은 요청으로 한 번 더 확인합니다.</p>}
+      {pending && !active && <div className="problem" role="alert">
+        <p>{error instanceof ApiError && !isTransientConnectionError(error) ? error.message :
+          navigator.onLine ? '요청이 저장됐는지 아직 확인할 수 없습니다.' : '인터넷 연결이 끊겼습니다.'}</p>
+        <p>요청을 이 탭에 보관했습니다. 연결이 돌아오면 아래 버튼으로 이어가세요.</p>
         <button type="button" className="btn" onClick={retry}>같은 요청 다시 보내기</button>
       </div>}
-      {error != null && <Problem error={error} />}
+      {error != null && !pending && <Problem error={error} />}
     </>
   )
 

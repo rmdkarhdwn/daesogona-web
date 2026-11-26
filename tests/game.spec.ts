@@ -406,32 +406,58 @@ test('시작 화면에서 상담 바로 체험 없이 기존 회차를 이어서
   await expect(choiceHeading(page, '지원 전형 선택')).toBeVisible()
 })
 
-test('응답이 유실되면 같은 명령 키와 버전으로 복구한다', async ({ page }) => {
+test('시작 응답만 유실되면 처음 생성된 회차를 연다', async ({ page }) => {
+  const ids: string[] = []
+  await page.route('**/api/v1/players', async route => {
+    const response = await route.fetch()
+    const { data } = await response.json()
+    ids.push(data.id)
+    if (ids.length === 1) await route.abort('failed')
+    else await route.fulfill({ response })
+  })
   await page.goto('/')
-  await page.getByLabel('이름').fill('재시도 학생')
-  await page.getByRole('radio', { name: '매운맛', exact: true }).check()
-  await page.getByRole('button', { name: '지원 시작' }).click()
-  await expect(page.getByRole('radio', { name: '일반전형' })).toBeVisible()
-  const headers: Record<string, string>[] = []
-  await page.route('**/api/v1/players/*/events/AD00/choices', async (route) => {
-    headers.push(route.request().headers())
-    if (headers.length === 1) {
-      await route.fetch()
-      await route.abort('failed')
-    } else {
-      await route.continue()
+  await page.getByLabel('이름').fill('시작 복구 학생')
+  await page.getByRole('button', { name: '학교생활 시작' }).click()
+  await expect(page).toHaveURL(/\/play\//)
+  expect(ids).toHaveLength(2)
+  expect(ids[0]).toBe(ids[1])
+  expect(page.url()).toContain('/play/' + ids[0])
+})
+
+for (const restoreFromTab of [false, true]) {
+  test(restoreFromTab ? '자동 복구가 실패해도 새로고침 후 같은 요청으로 복구한다' : '응답이 한 번 유실되면 같은 명령 키와 버전으로 자동 복구한다', async ({ page }) => {
+    await page.goto('/')
+    await page.getByLabel('이름').fill('재시도 학생')
+    await page.getByRole('radio', { name: '매운맛', exact: true }).check()
+    await page.getByRole('button', { name: '지원 시작' }).click()
+    await expect(page.getByRole('radio', { name: '일반전형' })).toBeVisible()
+    const headers: Record<string, string>[] = []
+    await page.route('**/api/v1/players/*/events/AD00/choices', async (route) => {
+      headers.push(route.request().headers())
+      if (headers.length === 1) {
+        await route.fetch()
+        await route.abort('failed')
+      } else if (restoreFromTab && headers.length === 2) {
+        await route.abort('failed')
+      } else {
+        await route.continue()
+      }
+    })
+    await select(page, '일반전형')
+    if (restoreFromTab) {
+      await expect(page.getByRole('button', { name: '같은 요청 다시 보내기' })).toBeVisible()
+      await page.reload()
+      await page.getByRole('button', { name: '같은 요청 다시 보내기' }).click()
+    }
+    await expect(choiceHeading(page, '중학교 활동 기록')).toBeVisible()
+    expect(headers).toHaveLength(restoreFromTab ? 3 : 2)
+    expect(headers[0]['idempotency-key']).toMatch(/^[a-f0-9-]{36}$/)
+    for (const replay of headers.slice(1)) {
+      expect(replay['idempotency-key']).toBe(headers[0]['idempotency-key'])
+      expect(replay['x-expected-version']).toBe(headers[0]['x-expected-version'])
     }
   })
-  await select(page, '일반전형')
-  await expect(page.getByRole('button', { name: '같은 요청 다시 보내기' })).toBeVisible()
-  await page.reload()
-  await page.getByRole('button', { name: '같은 요청 다시 보내기' }).click()
-  await expect(choiceHeading(page, '중학교 활동 기록')).toBeVisible()
-  expect(headers).toHaveLength(2)
-  expect(headers[0]['idempotency-key']).toMatch(/^[a-f0-9-]{36}$/)
-  expect(headers[0]['idempotency-key']).toBe(headers[1]['idempotency-key'])
-  expect(headers[0]['x-expected-version']).toBe(headers[1]['x-expected-version'])
-})
+}
 
 async function prepareRecruitmentCondition(page: Page) {
   // Recovery choices vary by run. Prepare through real commands rather than assuming identical health.

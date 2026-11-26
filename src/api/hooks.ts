@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import { useGameUi, useSavedGame } from '../state'
-import { ApiError, newCommandKey, request, resultPlayer, sendCommand, type PendingCommand } from './client'
+import { ApiError, isTransientConnectionError, newCommandKey, request, resultPlayer, sendCommand, type PendingCommand } from './client'
 import { playerPath, type PlayerView } from './contracts'
 
 import { loadStory } from './story'
@@ -29,7 +29,12 @@ export function useStory(player: PlayerView) {
 export function useCommands() {
   const queryClient = useQueryClient()
   const navigate = useNavigate()
-  const mutation = useMutation({ mutationFn: sendCommand, retry: false })
+  const mutation = useMutation({
+    mutationFn: sendCommand,
+    networkMode: 'always',
+    retry: (failures, error) => failures === 0 && navigator.onLine && isTransientConnectionError(error),
+    retryDelay: 1500,
+  })
 
   function refreshPlayerData(id: string) {
     // Story generation and reads have their own lifecycle.
@@ -59,7 +64,7 @@ export function useCommands() {
       if (command.path === '/players') navigate(`/play/${player.id}`)
       return result
     } catch (error) {
-      if (error instanceof ApiError && error.status >= 400 && error.status < 500 && error.status !== 408) {
+      if (error instanceof ApiError && error.status >= 400 && error.status < 500 && error.status !== 408 && error.status !== 429 && error.problem.code !== 'INVALID_RESPONSE') {
         ui.journal(null)
         if (targetId) await refreshPlayerData(decodeURIComponent(targetId))
       }

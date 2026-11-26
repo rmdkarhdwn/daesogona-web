@@ -28,16 +28,28 @@ export async function request<T>(path: string, options?: RequestInit): Promise<T
   })
 }
 
-export function sendCommand(command: PendingCommand) {
+// Only transport failures are retried. A rejection by the game engine is final.
+export function isTransientConnectionError(error: unknown) {
+  return error instanceof TypeError || (error instanceof DOMException && ['AbortError', 'TimeoutError'].includes(error.name))
+    || (error instanceof ApiError && [408, 502, 503, 504].includes(error.status))
+}
+
+export async function sendCommand(command: PendingCommand) {
   const headers = new Headers({ 'Idempotency-Key': command.key })
   if (command.body !== undefined) headers.set('Content-Type', 'application/json')
   if (command.expectedVersion !== undefined) headers.set('X-Expected-Version', String(command.expectedVersion))
-  return request<CommandResult>(command.path, {
-    method: command.method,
-    headers,
-    body: command.body === undefined ? undefined : JSON.stringify(command.body),
-    signal: AbortSignal.timeout(12_000),
-  })
+  const controller = new AbortController()
+  const timeout = window.setTimeout(() => controller.abort(), 45_000)
+  try {
+    return await request<CommandResult>(command.path, {
+      method: command.method,
+      headers,
+      body: command.body === undefined ? undefined : JSON.stringify(command.body),
+      signal: controller.signal,
+    })
+  } finally {
+    window.clearTimeout(timeout)
+  }
 }
 
 // getRandomValues also works on local-network HTTP on a phone.

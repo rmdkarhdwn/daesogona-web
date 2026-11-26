@@ -20,8 +20,11 @@ function savedAction(log: NarrativeLog) {
     case 'CAREER_PREFERENCE': return `희망 직무 선택 · ${jobLabel(log.subjectCode)}`
     case 'TURN': return log.resultCode === 'TURN_ADVANCED' ? `${log.year}학년 ${log.turn}턴 시작` : '이번 턴 일정 마무리'
     case 'YEAR_CHOICE': return `${label(log.subjectCode)} 선택`
-    case 'PROJECT_START': return `${label(log.subjectCode)} 시작`
-    case 'PROJECT_WORK': return `${label(log.subjectCode)} 작업`
+    case 'PROJECT_START': return `개인 프로젝트 시작 · ${label(log.subjectCode)}`
+    case 'PROJECT_WORK': {
+      const step = log.resultCode === 'COMPLETE' ? '작품 완성' : log.resultCode === 'FAILED' ? '미완성으로 마무리' : '작업 진행'
+      return `${label(log.subjectCode)} · ${step}`
+    }
     case 'PORTFOLIO_REGISTER': return `${label(log.subjectCode)} 포트폴리오 등록`
     case 'COURSE_ENROLL': return `${label(log.subjectCode)} 수강 신청`
     case 'COURSE_ATTEND': return `${label(log.subjectCode)} 수업 출석`

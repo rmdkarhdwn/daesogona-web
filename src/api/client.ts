@@ -15,6 +15,7 @@ export interface PendingCommand {
   path: string
   body?: Record<string, unknown>
   expectedVersion?: number
+  automaticProject?: boolean
 }
 
 export async function request<T>(path: string, options?: RequestInit): Promise<T> {

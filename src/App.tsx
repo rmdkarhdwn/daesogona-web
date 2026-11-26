@@ -10,7 +10,6 @@ import { useGameUi, useSavedGame } from './state'
 import { onPlayer, Recruitment, useRecruitment, type RunPlayer } from './game/activities'
 import { editionName, lockedEdition, type GameEdition } from './game/editions'
 import { GraduationReplay } from './game/graduation-replay'
-import { JobPortfolio } from './game/job-portfolio'
 import { recruitmentCalendar } from './game/recruitment-calendar'
 import { semesterTurns } from './game/schedule'
 import { fieldLearningRoutes, isFieldLearningRoute } from './game/field-learning'
@@ -258,7 +257,6 @@ function Game({ player, busy, receipt, feedback, commandFailed, run }: {
             <h2 className="section-label" id="choices-title">선택지</h2>
             {!dialog && feedback}
             {panel && <section className="story-card choice-card" id="current-selection" aria-label="지금 열린 선택">{panel}</section>}
-            {player.school && school && canAct && !player.school.vacationPending && (player.year < 3 || player.turn <= 4) && <JobPortfolio player={player} busy={busy} run={run} />}
             {hiring && canAct && <Recruitment player={player} busy={busy} run={run} data={recruitment} />}
             {school && !player.vacation && !player.school?.vacationPending && !player.school?.practiceRemaining && (!hasRequired || focusEvent) &&
               <SemesterFocus key={`${player.year}-${player.turn <= semesterTurns ? 1 : 2}`}

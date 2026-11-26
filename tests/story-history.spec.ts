@@ -25,3 +25,41 @@ test('이전 서버에서 다음 페이지의 서사까지 읽고 최근 로그�
   await expect(page.locator('#current-story summary')).toHaveCount(2)
   await expect(page.locator('#commit-calendar .commit-readout')).toContainText('1학년 3턴 시작')
 })
+
+test('방학과 새 이벤트의 처리 코드를 결과 안내와 기록에 노출하지 않는다', async ({ page }) => {
+  const { view } = createGame({ name: '방학 점검', edition: 'MILD' }, true)
+  Object.assign(view, { phase: 'SCHOOL', year: 1, turn: 12, school: { vacationPending: true, semesterFocus: 'PROGRAMMING' } })
+  const subject = 'VACATION_Y1_SUMMER'
+  const result = 'SEMESTER_ADVANCED'
+  const text = '여름방학을 마치고 2학기가 시작됐습니다.'
+  const logs = [{ logId: 1, year: 1, turn: 10, kind: 'EVENT', subjectCode: 'UNKNOWN_EVENT', choiceCode: 'NEW_OPTION',
+    resultCode: 'NEW_RESULT', evidenceJson: JSON.stringify({ title: '동아리 모임', choiceLabel: '동아리 발표 준비' }) }]
+  await page.route('**/api/v1/**', route => {
+    const path = new URL(route.request().url()).pathname
+    const ok = (data: unknown) => route.fulfill({ json: { success: true, data } })
+    if (path.endsWith('/choices')) {
+      view.turn++
+      view.school!.vacationPending = false
+      logs.push({ logId: 2, year: 1, turn: 12, kind: 'EVENT_CHOICE', subjectCode: subject, choiceCode: 'REST', resultCode: result,
+        evidenceJson: JSON.stringify({ scene: subject + ' · ' + result }) })
+      return ok({ player: view, actionCode: subject, resultCode: result, statDelta: { S: -3 } })
+    }
+    if (path.endsWith('/events')) return ok(view.turn === 12 ? [{ code: subject, title: '여름방학', situation: '방학 계획을 정합니다.',
+      required: true, choices: [{ code: 'REST', label: '방학 동안 쉬기', enabled: true, apCost: 0 }] }] : [])
+    if (path.endsWith('/history')) return ok({ items: logs })
+    if (path.endsWith('/progress')) return ok({ projects: [], qualifications: [], snapshots: [] })
+    return ok(path.endsWith(view.id) ? view : [])
+  })
+  await page.addInitScript(id => sessionStorage.setItem('daesogo.playback.' + id, 'paused'), view.id)
+  await page.goto('/play/' + view.id)
+  await page.getByRole('button', { name: '방학 동안 쉬기' }).click()
+  await expect(page.locator('.receipt')).toContainText(text)
+  await expect(page.locator('.receipt')).toContainText('스트레스 -3')
+  await page.reload()
+  await expect(page.locator('#current-story')).toContainText(text)
+  await page.getByRole('button', { name: '전체 기록', exact: true }).click()
+  const history = page.getByRole('dialog')
+  await expect(history).toContainText(text)
+  await expect(history).toContainText('동아리 발표 준비')
+  await expect(page.locator('body')).not.toContainText(/VACATION_Y|SEMESTER_ADVANCED|UNKNOWN_EVENT|NEW_OPTION|NEW_RESULT/)
+})

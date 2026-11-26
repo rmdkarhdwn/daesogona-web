@@ -7,7 +7,7 @@ import { ApiError } from '../api/client'
 import { isSchool, type AdmissionProtection, type CalendarPeriod, type InterviewEvaluation, type MutationResult, type PlayerView, type Stat, type Stats } from '../api/contracts'
 import { usePlayerData } from '../api/hooks'
 import { ChoiceCountdown, randomChoice, useChoiceTimer } from './choice-timer'
-import { actionLabel, admissionComponents, admissionProtection, label, phaseLabel, schoolPeriod, stats } from './labels'
+import { actionLabel, admissionComponents, admissionProtection, calendarResult, displayLabel, phaseLabel, schoolPeriod, stats } from './labels'
 import { fieldLearningDetail, fieldLearningRoutes, fieldLearningStatusLabel, isFieldLearningExperience, isFieldLearningRoute } from './field-learning'
 
 export function CampusPhoto({ className }: { className?: string }) {
@@ -159,12 +159,15 @@ export function Receipt({ receipt }: { receipt: MutationResult }) {
   const changes = Object.entries(receipt.statDelta ?? {}).map(([stat, value]) => `${stats[stat as Stat]} ${value > 0 ? '+' : ''}${value}`)
   const interview = receipt.details?.interviewEvaluation as InterviewEvaluation | undefined
   const protection = receipt.details?.protection as AdmissionProtection | undefined
+  const title = actionLabel(receipt.actionCode)
+  const result = displayLabel(receipt.resultCode)
+  const message = experience ? `${fieldLearningRoutes[experience.route].name} · ${fieldLearningStatusLabel(experience.status)}` :
+    admission ? `${receipt.details?.passed ? '전형 통과' : '전형 탈락'} · ${receipt.details?.score}점 · ${receipt.details?.rank}위` :
+    calendarResult(receipt.resultCode) ?? [title, result].filter(Boolean).join(' · ')
+  if (!message && !changes.length && !interview && !protection) return null
   return (
     <p className="receipt" role="status">
-      {experience ? `${fieldLearningRoutes[experience.route].name} · ${fieldLearningStatusLabel(experience.status)}` :
-        admission ? `${receipt.details?.passed ? '전형 통과' : '전형 탈락'} · ${receipt.details?.score}점 · ${receipt.details?.rank}위` :
-        receipt.actionCode.startsWith('DAILY_') ? '선택을 인생 기록에 남겼습니다.' :
-        `${actionLabel(receipt.actionCode)} · ${receipt.resultCode === 'DONE' || receipt.resultCode === 'CHOICE_SAVED' ? '기록됨' : label(receipt.resultCode)}`}
+      {message}
       {experience && <small>{fieldLearningDetail(experience)}</small>}
       {admission && <small>{admissionComponents(Number(receipt.details?.stage), receipt.details?.components)}</small>}
       {typeof receipt.details?.minimumScore === 'number' && <small>통과 기준 {receipt.details.minimumScore}점</small>}

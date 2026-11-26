@@ -132,6 +132,7 @@ export interface ProgressView {
 }
 export interface HistoryEntry {
   logId: number
+  evidenceJson?: string | null
   year: number
   turn: number
   beforeSchoolDay?: number | null

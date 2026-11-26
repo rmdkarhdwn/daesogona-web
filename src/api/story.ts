@@ -1,21 +1,22 @@
 import { ApiError, request } from './client'
 import { playerPath, type HistoryEntry, type PlayerView, type StoryEntry, type StoryView, type StressLoad } from './contracts'
 
-import { jobLabel, label } from '../game/labels'
+import { calendarResult, displayLabel, jobLabel, label } from '../game/labels'
 
 interface NarrativeLog extends HistoryEntry {
   narrativeStatus?: 'SAVED' | 'PENDING' | 'FAILED' | null
   narrative?: string | null
   narrativeSource?: 'LLM' | 'TEMPLATE' | 'FALLBACK' | null
-  evidenceJson?: string | null
 }
 
-function readEvidence(raw?: string | null): { title?: string; scene?: string; choiceLabel?: string; focusStat?: string; stressLoad?: StressLoad } {
+export function readEvidence(raw?: string | null): { title?: string; scene?: string; choiceLabel?: string; focusStat?: string; stressLoad?: StressLoad } {
   if (!raw) return {}
   try { return JSON.parse(raw) ?? {} } catch { return {} }
 }
 
 function savedAction(log: NarrativeLog) {
+  const transition = calendarResult(log.resultCode)
+  if (transition) return transition
   switch (log.kind) {
     case 'CAREER_PREFERENCE': return `희망 직무 선택 · ${jobLabel(log.subjectCode)}`
     case 'TURN': return log.resultCode === 'TURN_ADVANCED' ? `${log.year}학년 ${log.turn}턴 시작` : '이번 턴 일정 마무리'
@@ -43,11 +44,11 @@ function toStoryEntry(log: NarrativeLog): StoryEntry | undefined {
   if (!log.narrativeStatus && !log.narrative && !evidence.scene && !action) return
   const focus = { PROGRAMMING: '프로그래밍', ACADEMIC: '학업', COMMUNICATION: '의사소통' }[log.choiceCode ?? '']
   const summary = log.subjectCode?.startsWith('FOCUS_') && focus ? `학기 목표 선택 · ${focus}` :
-    evidence.choiceLabel || action || undefined
+    displayLabel(evidence.choiceLabel) || action || undefined
   return {
     actionSummary: summary,
     id: String(log.logId), year: log.year, turn: log.turn, beforeSchoolDay: log.beforeSchoolDay,
-    title: evidence.title || action || '학교생활 기록', text: log.narrative || evidence.scene || action,
+    title: displayLabel(evidence.title) || action || '학교생활 기록', text: displayLabel(log.narrative) || displayLabel(evidence.scene) || action,
     status: log.narrativeStatus === 'PENDING' ? 'PENDING' : 'READY',
     source: log.narrativeSource === 'LLM' ? 'AI' : log.narrativeSource === 'TEMPLATE' ? 'MOCK' : 'FALLBACK',
     stressLoad: Array.isArray(evidence.stressLoad?.sources) ? evidence.stressLoad : null,

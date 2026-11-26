@@ -1,5 +1,6 @@
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
+import { readEvidence } from '../api/story'
 import { request } from '../api/client'
 import {
   playerPath, type CareerPreferenceView, type FieldLearningExperience, type FieldLearningRoute, type HistoryPage,
@@ -7,7 +8,7 @@ import {
 } from '../api/contracts'
 import { usePlayerData } from '../api/hooks'
 import { AssessmentResults } from './assessments'
-import { admissionProtection, jobLabel, label, trackLabel } from './labels'
+import { admissionProtection, calendarResult, displayLabel, jobLabel, label, trackLabel } from './labels'
 import { fieldLearningDetail, fieldLearningRoutes, fieldLearningStatusLabel } from './field-learning'
 import { careerCatalogPath, type RunPlayer } from './activities'
 import { NarshaRecord } from './school-life'
@@ -98,18 +99,22 @@ export function History({ player }: { player: PlayerView }) {
       </details> : null}
       {history.isPending ? <Loading /> : history.error ? <Problem error={history.error} retry={() => { void history.refetch() }} /> :
         entries?.length ? (
-          <ol className="history-list">{entries.map((entry) => (
-            <li key={entry.logId}>
-              <span>{entry.beforeSchoolDay ? `비포스쿨 ${entry.beforeSchoolDay}일` : entry.year ? `${entry.year}학년 ${entry.turn}턴` : '입학 전형'}</span>
-              <strong>{entry.resultCode === 'FIELD_LEARNING_PREPARED' ? '현장학습 준비 완료' :
-                entry.resultCode === 'FIELD_LEARNING_COMPLETED' ? '현장학습 참가 완료' : label(entry.subjectCode)}</strong>
-              {entry.choiceCode && <small>{label(entry.choiceCode)}</small>}
-              {entry.admission && <small>{label(entry.admission.admissionTrack)} · {entry.admission.score}점 · {label(entry.resultCode)}
-                {entry.admission.minimumScore !== undefined && ` · 통과 기준 ${entry.admission.minimumScore}점`}</small>}
-              {entry.admission?.protection && <small>{admissionProtection(entry.admission.protection, entry.admission.passed === true)}</small>}
-              <AssessmentResults results={entry.assessments} />
-            </li>
-          ))}</ol>
+          <ol className="history-list">{entries.map((entry) => {
+            const evidence = readEvidence(entry.evidenceJson)
+            const choice = displayLabel(evidence.choiceLabel) ?? displayLabel(entry.choiceCode)
+            return (
+              <li key={entry.logId}>
+                <span>{entry.beforeSchoolDay ? `비포스쿨 ${entry.beforeSchoolDay}일` : entry.year ? `${entry.year}학년 ${entry.turn}턴` : '입학 전형'}</span>
+                <strong>{entry.resultCode === 'FIELD_LEARNING_PREPARED' ? '현장학습 준비 완료' :
+                  entry.resultCode === 'FIELD_LEARNING_COMPLETED' ? '현장학습 참가 완료' : calendarResult(entry.resultCode) ?? displayLabel(evidence.title) ?? displayLabel(entry.subjectCode) ?? '학교생활 기록'}</strong>
+                {choice && <small>{choice}</small>}
+                {entry.admission && <small>{label(entry.admission.admissionTrack)} · {entry.admission.score}점 · {label(entry.resultCode)}
+                  {entry.admission.minimumScore !== undefined && ` · 통과 기준 ${entry.admission.minimumScore}점`}</small>}
+                {entry.admission?.protection && <small>{admissionProtection(entry.admission.protection, entry.admission.passed === true)}</small>}
+                <AssessmentResults results={entry.assessments} />
+              </li>
+            )
+          })}</ol>
         ) : <p className="muted">기록할 선택이 아직 없습니다.</p>}
       {history.hasNextPage && <button className="btn wide" type="button" disabled={history.isFetchingNextPage}
         onClick={() => { void history.fetchNextPage() }}>기록 더 보기</button>}

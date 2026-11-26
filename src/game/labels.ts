@@ -95,15 +95,43 @@ const labels: Record<string, string> = {
   TURN_ADVANCE: '턴 종료', USE_ITEM: '회복 키트 사용', RECOVERY_KIT: '회복 키트', APPLY: '기업 지원',
   CODING: '코딩 테스트', INTERVIEW: '면접', RESULT: '결과 확인',
   CAREER_PICK: '희망 직무 선택', CAREER_CHANGE: '희망 직무 변경',
+  TURN_END: '턴 종료', YEAR_CHOICE: '학년 진로 선택', CAMP: '전공강화캠프 참가',
+  PROGRAMMING: '프로그래밍 집중', COMMUNICATION: '협업·의사소통 집중', ACADEMIC: '학업 집중',
+  NARSHA_START: '1학년 나르샤 시작', NARSHA_RESUME: '2학년 나르샤 시작', NARSHA_WRAP: '나르샤 마무리',
+  NARSHA_RANK: '나르샤 순위 발표', SOFTWAREWAVE: '소프트웨이브 참가 결정',
+  JOIN: '참가', SKIP: '미참가', SUBMIT: '결과 제출', CHECK: '결과 확인',
+  COMPLETED: '완료', STARTED: '시작', WORKED: '작업 진행', REGISTERED: '등록 완료',
+  PORTFOLIO_REGISTER: '포트폴리오 등록', JOB_APPLY: '기업 지원', JOB_STEP: '채용 전형',
   ADMISSION_PASSED: '전형 통과', ADMISSION_REJECTED: '전형 탈락',
 }
 
-export const label = (code?: string | null) => code ? labels[code] ?? code : '미정'
+// Structured identifiers are never used as display text. Keep authored names intact.
+export function displayLabel(code?: string | null): string | undefined {
+  if (!code) return
+  if (Object.hasOwn(labels, code)) return labels[code]
+  const vacation = /^VACATION_Y([1-3])_(SUMMER|WINTER)$/.exec(code)
+  if (vacation) return `${vacation[1]}학년 ${vacation[2] === 'SUMMER' ? '여름방학' : '겨울방학'}`
+  const focus = /^FOCUS_Y([1-3])_S([12])$/.exec(code)
+  if (focus) return `${focus[1]}학년 ${focus[2]}학기 집중 목표`
+  if (!/^[A-Z][A-Z0-9_]*(?:\s*·\s*[A-Z][A-Z0-9_]*)*$/.test(code)) return code
+}
+
+export const label = (code?: string | null) => displayLabel(code) ?? '미정'
+
+export function calendarResult(code: string) {
+  switch (code) {
+    case 'SEMESTER_ADVANCED': return '여름방학을 마치고 2학기가 시작됐습니다.'
+    case 'YEAR_ADVANCED': return '겨울방학을 마치고 새 학년이 시작됐습니다.'
+    case 'CAMP_READY': return '방학 전공강화캠프에 참가합니다.'
+    case 'GRADUATION_READY': return '마지막 겨울방학을 마치고 졸업을 앞두고 있습니다.'
+  }
+}
+
 export function trackLabel(track?: string | null) {
   const tracks: Record<string, string> = { WEB: '웹 서비스 트랙', AI: 'AI 트랙', MOBILE: '모바일 앱 트랙', GAME: '게임 트랙', NETWORK: '네트워크·보안 트랙' }
   return track ? tracks[track] ?? label(track) : '미정'
 }
-export const actionLabel = (code: string) => code === 'SOCIAL' ? '친구와 교류' : label(code)
+export const actionLabel = (code: string) => code === 'SOCIAL' ? '친구와 교류' : displayLabel(code)
 export const jobLabel = (role?: string | null) => role ? ({
   FE: '프론트엔드', BE: '백엔드', AI: '인공지능 개발자', SW: '소프트웨어 개발', DESIGN: 'UI/UX 디자인', MOBILE: '모바일 개발', GAME: '게임 개발',
 })[role] ?? label(role) : '미정'

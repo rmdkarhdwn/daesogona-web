@@ -119,14 +119,14 @@ export function ChoiceForm({
   )
 }
 
-export function Dialog({ title, children, close }: { title: string; children: ReactNode; close: () => void }) {
+export function Dialog({ title, children, close, open = true }: { open?: boolean; title: string; children: ReactNode; close: () => void }) {
   const ref = useRef<HTMLDialogElement>(null)
   const titleId = useId()
   useEffect(() => {
     const dialog = ref.current
-    if (dialog && !dialog.open) dialog.showModal()
+    if (open && dialog && !dialog.open) dialog.showModal()
     return () => { if (dialog?.open) dialog.close() }
-  }, [])
+  }, [open])
   return (
     <dialog ref={ref} className="dialog" aria-labelledby={titleId}
       onCancel={(event) => { event.preventDefault(); close() }}>

@@ -44,6 +44,6 @@ export function CommitCalendar({ player, entries, loading, failed }: {
           : <p>이 턴에 남긴 기록이 없습니다.</p>}
       </> : <p>입학 후 첫 턴부터 기록됩니다.</p>}
     </div>
-    <a href="#current-choices" className="map-return">선택지로 돌아가기</a>
+    <a href="#current-story" className="map-return">최근 기록으로 돌아가기</a>
   </section>
 }

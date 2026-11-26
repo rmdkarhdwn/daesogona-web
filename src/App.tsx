@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useEffectEvent, useState, type ReactNode } from 'react'
 import { Link, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom'
 import { ApiError, isTransientConnectionError, resultReceipt } from './api/client'
 import {
@@ -19,6 +19,7 @@ import { CurrentStory, StoryJournal } from './game/story'
 import { CampusScene, DashboardLinks, SchoolRail, StudentRail } from './game/dashboard'
 import { InterviewForm } from './game/interview'
 import { isNarshaParticipation, NarshaParticipation } from './game/narsha-participation'
+import { isStudentRoutine, routineChoice } from './game/student-routine'
 import { seniorFocus } from './game/senior-activities'
 import { availableInYear, forSchoolYear } from './game/year-activities'
 import { EventSource, NarshaRecord } from './game/school-life'
@@ -142,6 +143,10 @@ function Game({ player, busy, receipt, feedback, commandFailed, run }: {
   const story = useStory(player)
   const recruitment = useRecruitment(player, hiring)
   const [selectedEvent, setSelectedEvent] = useState<string>()
+  const [dismissed, setDismissed] = useState('')
+  const period = [player.phase, player.year, player.turn, player.beforeSchoolDay].join('/')
+  const [manualPeriod, setManualPeriod] = useState('')
+  const manual = manualPeriod === period
   const playbackKey = `daesogo.playback.${player.id}`
   const [playback, setPlayback] = useState<'auto' | 'next' | null>(
     () => sessionStorage.getItem(playbackKey) === 'paused' ? null : 'auto',
@@ -152,32 +157,50 @@ function Game({ player, busy, receipt, feedback, commandFailed, run }: {
     .filter(event => event.required || availableInYear(player.year, event.code))
     .map(event => player.school ? forSchoolYear(player.year, event, player.major, player.track, story.data?.selectedPlacement) : event) : []
   const requiredEvents = visible.filter((event) => event.required)
-  const eventOptions = requiredEvents.length ? requiredEvents : visible
-  const current = eventOptions.find((event) => event.code === selectedEvent) ?? eventOptions[0]
-  const focusEvent = current?.code === 'TERM_FOCUS' || current?.code.startsWith('FOCUS_Y') ? current : undefined
-  const decision = school && current?.required && !focusEvent ? current : undefined
+  const offered = requiredEvents.length ? requiredEvents : visible
+  const eventOptions = offered.filter(event => !isStudentRoutine(player, event) && (event.required || event.choices.some(option => option.enabled)))
+  const current = eventOptions.find(event => event.code === selectedEvent) ?? eventOptions[0]
+  const decision = school && current?.required ? current : undefined
   const hasRequired = Boolean(yearChoice) || requiredEvents.length > 0 || (school && ((player.year === 2 && !player.major) || (player.year === 3 && !player.track)))
-  const canAct = school && Boolean(events.data) && !events.error && !hasRequired
-  const choiceOpen = visible.some((event) => event.choices.some((choice) => choice.enabled)) || recruitment.hasAction
-  const importantChoice = visible.some((event) => (event.blocksAuto ?? (event.required || event.code === 'J01'))
-    && event.choices.some((choice) => choice.enabled)) || recruitment.hasAction
-  const blocksAuto = importantChoice || (playback !== 'next' && visible.some((event) => event.choices.some((choice) => choice.enabled)))
+  const ready = school && Boolean(events.data) && !events.error && !yearChoice
+  const canAct = ready && !hasRequired
+  const recruit = canAct && recruitment.hasAction
+  const choiceOpen = Boolean(current) || recruit
+  const special = ['CAREER_PICK', 'GRAD_READY'].includes(player.phase)
+  const needsDecision = Boolean(yearChoice || choiceOpen || special)
+  const decisionKey = [period, yearChoice, ...eventOptions.map(e => e.code), recruit && 'hiring'].join(':')
+  const modalOpen = needsDecision && !dialog && dismissed !== decisionKey
+  const routine = offered.find(event => isStudentRoutine(player, event) && event.choices.some(choice => choice.enabled))
+  const option = routine && routineChoice(player, routine)
+  const routinePath = routine && option ? `/events/${encodeURIComponent(routine.code)}/choices` : undefined
   const checking = events.isFetching || recruitment.pending || recruitment.fetching
-  const canAuto = canAct && !blocksAuto && !recruitment.error && !checking
-  const awaitingChoice = hasRequired || blocksAuto
-  const running = Boolean(playback && !awaitingChoice && !dialog && !commandFailed)
+  const awaitingChoice = needsDecision
+  const canAuto = ready && !needsDecision && !checking && !recruitment.error && (canAct || Boolean(routinePath))
+  const running = Boolean((playback || manual) && canAuto && !dialog && !commandFailed)
+  const title = current?.title ?? (yearChoice === 'MAJOR' ? '2학년 학과 선택' : yearChoice === 'TRACK' ? '3학년 수업 선택' :
+    player.phase === 'CAREER_PICK' ? '희망 직무 선택' : player.phase === 'GRAD_READY' ? '졸업 후 진로' : recruitment.step?.title ?? '기업 지원')
 
+  const sendScheduled = useEffectEvent(run)
   useEffect(() => {
-    if (!playback || !school) return
-    if (commandFailed || events.error || recruitment.error || (playback === 'next' && awaitingChoice)) {
-      setPlayback(null)
+    if ((!playback && !manual) || !school) return
+    if (commandFailed || events.error || recruitment.error || awaitingChoice) {
+      if (playback === 'next' || commandFailed || events.error || recruitment.error) setPlayback(null)
+      if (manual) setManualPeriod('')
       return
     }
     if (busy || dialog || !canAuto) return
-    const delay = playback === 'next' ? nextDecisionDelay : autoTurnDelay / speed
-    const timer = window.setTimeout(() => run('POST', '/turns/advance', { mode: 'AUTO' }), delay)
+    const delay = manual ? 0 : (playback === 'next' ? nextDecisionDelay : autoTurnDelay / speed)
+    const timer = window.setTimeout(() => {
+      if (routinePath && option) {
+        if (manual && routine?.code.startsWith('VACATION')) setManualPeriod('')
+        sendScheduled('POST', routinePath, { choiceCode: option.code })
+      } else {
+        if (manual) setManualPeriod('')
+        sendScheduled('POST', '/turns/advance', manual ? undefined : { mode: 'AUTO' })
+      }
+    }, delay)
     return () => window.clearTimeout(timer)
-  }, [playback, speed, school, commandFailed, events.error, recruitment.error, busy, checking, awaitingChoice, dialog, canAuto, run])
+  }, [playback, manual, speed, school, commandFailed, events.error, recruitment.error, busy, awaitingChoice, dialog, canAuto, routinePath, routine?.code, option?.code])
 
   useEffect(() => {
     if (school) sessionStorage.setItem(playbackKey, playback === 'auto' ? 'auto' : 'paused')
@@ -192,6 +215,7 @@ function Game({ player, busy, receipt, feedback, commandFailed, run }: {
   const advance = () => {
     setPlayback(null)
     if (choiceOpen) setDialog('turn')
+    else if (routinePath) setManualPeriod(period)
     else nextTurn()
   }
 
@@ -202,7 +226,7 @@ function Game({ player, busy, receipt, feedback, commandFailed, run }: {
   else if (yearChoice) panel = <YearTransitionPicker key={yearChoice} player={player} kind={yearChoice} busy={busy} run={run} />
   else if (events.isPending) panel = <Loading />
   else if (events.error) panel = <Problem error={events.error} retry={() => { void events.refetch() }} />
-  else if (current && !focusEvent) panel = (
+  else if (current) panel = (
     <>
       {eventOptions.length > 1 && <select className="event-selector" aria-label="현재 이벤트" value={current.code} disabled={busy}
         onChange={(event) => setSelectedEvent(event.target.value)}>
@@ -241,14 +265,14 @@ function Game({ player, busy, receipt, feedback, commandFailed, run }: {
       <select className="clock-speed" aria-label="진행 속도" value={speed} onChange={(event) => setSpeed(Number(event.target.value))}>
         {[1, 2, 4, 8, 16].map((rate) => <option key={rate} value={rate}>{rate}×</option>)}
       </select>
-      <button className="btn" type="button" disabled={playback === 'next' || !canAct || importantChoice || checking || busy || commandFailed || Boolean(recruitment.error)}
+      <button className="btn" type="button" disabled={playback === 'next' || !canAuto || busy || commandFailed}
         onClick={() => { showStory(); setPlayback('next') }}>다음 결정까지</button>
-      <button className="btn end-turn" type="button" disabled={!canAct || busy} onClick={advance}>턴 종료</button>
+      <button className="btn end-turn" type="button" disabled={(!canAct && !routinePath) || checking || manual || busy} onClick={advance}>턴 종료</button>
     </div>
   )
 
   return (
-    <ChoiceTimerScope paused={busy || commandFailed || Boolean(dialog) || (canAct && recruitment.hasAction)} resetKey={`${player.id}:${player.version}:${player.phase}`}>
+    <ChoiceTimerScope manualOnly={school || special} paused={busy || commandFailed || !modalOpen} resetKey={`${player.id}:${player.version}:${player.phase}`}>
     <Frame player={player} timeControls={timeControls} footer={<Journey player={player} />}
       saveStatus={busy ? '저장 중' : commandFailed ? '저장 상태 확인' : '저장됨'}>
       <div className="story-layout">
@@ -257,22 +281,23 @@ function Game({ player, busy, receipt, feedback, commandFailed, run }: {
           <CampusScene />
           <div className="journal-heading"><h1 id="journal-title">인생 기록</h1><span>{entries.length}건</span></div>
           <CurrentStory entries={entries.slice(-recentLogCount).reverse()} loading={story.isPending} failed={story.isError} retry={() => { void story.refetch() }} />
-          <section className="current-choices" id="current-choices" aria-labelledby="choices-title">
-            <h2 className="section-label" id="choices-title">선택지</h2>
-            {!dialog && feedback}
-            {hiring && canAct && (recruitment.hasAction || recruitment.pending || Boolean(recruitment.error) || recruitment.applications.length > 0) &&
+          <section className="current-choices" id="current-choices" aria-label="학교생활 진행">
+            {!dialog && !modalOpen && feedback}
+            {needsDecision && <>
+              <button className="btn decision-trigger" aria-haspopup="dialog" type="button" onClick={() => setDismissed('')}>{title} · 결정 열기</button>
+              <Dialog key={decisionKey} title="중요한 결정" open={modalOpen} close={() => setDismissed(decisionKey)}>
+                {feedback}
+                {panel && <section className="choice-card" id="current-selection" aria-label="지금 열린 선택">{panel}</section>}
+                {recruit && <Recruitment player={player} busy={busy} run={run} data={recruitment} />}
+                {school && canAct && <button type="button" className="btn" disabled={busy} onClick={advance}>이번 턴 선택 건너뛰기</button>}
+              </Dialog>
+            </>}
+            {!needsDecision && panel && <section className="story-card" id="current-selection" aria-label="지금 열린 선택">{panel}</section>}
+            {hiring && canAct && !recruit && (recruitment.pending || Boolean(recruitment.error) || recruitment.applications.length > 0) &&
               <Recruitment player={player} busy={busy} run={run} data={recruitment} />}
-            {panel && <section className="story-card choice-card" id="current-selection" aria-label="지금 열린 선택">{panel}</section>}
-            {school && !player.vacation && !player.school?.vacationPending && !player.school?.practiceRemaining && (!hasRequired || focusEvent) &&
-              <SemesterFocus key={`${player.year}-${player.turn <= semesterTurns ? 1 : 2}`}
-                player={player} busy={busy} run={run} event={focusEvent} />}
-            {Boolean(player.vacation?.campTurn) && <section className="story-card choice-card">
-              <Heading title={`전공강화캠프 · ${player.vacation?.campTurn}/2턴`} level={2}>
-                시간을 진행하면 이번 실습을 마칩니다.
-              </Heading>
-            </section>}
-
-            {!panel && !hiring && !school && <p className="story-note">현재 열린 선택지가 없습니다.</p>}
+            {school && !player.vacation && !player.school?.vacationPending && (player.semesterFocus || player.school?.semesterFocus) &&
+              <SemesterFocus player={player} />}
+            {Boolean(player.vacation?.campTurn) && <p className="story-note">전공강화캠프 · {player.vacation?.campTurn}/2턴</p>}
           </section>
           {receipt && !['TURN_ADVANCE', 'TURN_END'].includes(receipt.actionCode) && <Receipt receipt={receipt} />}
           <StoryJournal entries={entries.slice(0, -recentLogCount)} />
@@ -312,24 +337,16 @@ function YearTransitionPicker({ player, kind, busy, run }: {
   </section>
 }
 
-function SemesterFocus({ player, busy, run, event }: {
-  player: PlayerView; busy: boolean; run: RunPlayer; event?: EventView
-}) {
-  const query = usePlayerData<EventView>(player.id, '/events/TERM_FOCUS', !event && !player.semesterFocus && !player.school)
+function SemesterFocus({ player }: { player: PlayerView }) {
   const stored = player.school?.semesterFocus
   const focusCode = player.semesterFocus?.code ?? ({ P: 'PROGRAMMING', A: 'ACADEMIC', C: 'COMMUNICATION' }[stored ?? ''])
   const focus = (player.year === 3 && focusCode ? seniorFocus[focusCode] : undefined) ?? player.semesterFocus?.label ?? (stored ? stats[stored as keyof typeof stats] : undefined)
   const semester = player.turn <= semesterTurns ? 1 : 2
   const turnInSemester = (player.turn - 1) % semesterTurns + 1
-  const choices = (event ?? query.data)?.choices ?? []
   return (
     <section className="story-card choice-card" aria-label="이번 학기에 집중할 것">
       <Heading eyebrow={`${semester}학기 · ${turnInSemester}/${semesterTurns}턴`} title="이번 학기에 집중할 것" level={2} />
-      {focus ? <p><strong>{focus}</strong><br /><small>이 학기가 끝날 때까지 매 턴 적용됩니다.</small></p> :
-        choices.length ? <ChoiceForm automatic busy={busy} submit="이번 학기 집중 정하기"
-          options={choices.map((choice) => ({ value: choice.code, label: (player.year === 3 && seniorFocus[choice.code]) || choice.label, detail: choiceDescription(choice.description), disabled: !choice.enabled }))}
-          onSubmit={(choiceCode) => run('POST', `/events/${event?.code ?? 'TERM_FOCUS'}/choices`, { choiceCode })} /> :
-          query.isError ? <Problem error={query.error} retry={() => { void query.refetch() }} /> : <Loading />}
+      <p><strong>{focus}</strong><br /><small>이 학기가 끝날 때까지 매 턴 적용됩니다.</small></p>
     </section>
   )
 }

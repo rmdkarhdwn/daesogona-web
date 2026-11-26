@@ -459,3 +459,11 @@ input::placeholder { color: var(--muted); }
 @media (prefers-reduced-motion: reduce) { .memory-caption { animation: none; } }
 .graduation-result { scroll-margin-top: 6rem; }
 .graduation-result > button { margin-top: .5rem; }
+
+.decision-trigger { align-self: flex-start; }
+.current-choices .dialog { overscroll-behavior: contain; }
+.current-choices .dialog-heading {
+  position: sticky; top: -18px; z-index: 1; background: var(--panel);
+  padding-block: 8px; border-bottom: 1px solid var(--divider);
+}
+.current-choices .dialog .recruitment { margin-block: 12px; }

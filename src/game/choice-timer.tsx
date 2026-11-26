@@ -4,7 +4,7 @@ export const choiceTimeoutMs = 10_000
 type Clock = { enabled: boolean; paused: boolean; key: string; inputAt: { current: number }; toggle: () => void }
 const ChoiceClock = createContext<Clock | null>(null)
 
-export function ChoiceTimerScope({ children, paused, resetKey }: { children: ReactNode; paused: boolean; resetKey: string }) {
+export function ChoiceTimerScope({ children, paused, resetKey, manualOnly = false }: { children: ReactNode; manualOnly?: boolean; paused: boolean; resetKey: string }) {
   const [enabled, setEnabled] = useState(true)
   const [hidden, setHidden] = useState(document.hidden)
   const inputAt = useRef(Date.now())
@@ -19,7 +19,7 @@ export function ChoiceTimerScope({ children, paused, resetKey }: { children: Rea
       document.removeEventListener('visibilitychange', visibility)
     }
   }, [])
-  return <ChoiceClock.Provider value={{ enabled, paused: paused || hidden, key: resetKey, inputAt,
+  return <ChoiceClock.Provider value={manualOnly ? null : { enabled, paused: paused || hidden, key: resetKey, inputAt,
     toggle: () => { inputAt.current = Date.now(); setEnabled(value => !value) } }}>{children}</ChoiceClock.Provider>
 }
 

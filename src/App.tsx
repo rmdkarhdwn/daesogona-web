@@ -3,12 +3,13 @@ import { Link, Navigate, Route, Routes, useLocation, useParams } from 'react-rou
 import { ApiError, isTransientConnectionError, resultReceipt } from './api/client'
 import {
   CAMPUS_FINISH_CHOICE, isSchool, playerPath, type YearChoice, type YearTransitionView, type ApplicationView, type CareerPreferenceView, type EndingView, type EventView,
-  type MutationResult, type PlayerView,
+  type MutationResult, type PlayerView, type HistoryEntry,
 } from './api/contracts'
 import { useCommands, usePlayerData, useStory } from './api/hooks'
 import { useGameUi, useSavedGame } from './state'
 import { onPlayer, Recruitment, useRecruitment, type RunPlayer } from './game/activities'
 import { editionName, lockedEdition, type GameEdition } from './game/editions'
+import { GraduationReplay } from './game/graduation-replay'
 import { JobPortfolio } from './game/job-portfolio'
 import { recruitmentCalendar } from './game/recruitment-calendar'
 import { semesterTurns } from './game/schedule'
@@ -194,7 +195,7 @@ function Game({ player, busy, receipt, feedback, commandFailed, run }: {
   let panel: ReactNode
   if (player.phase === 'CAREER_PICK') panel = <CareerPicker player={player} busy={busy} run={run} />
   else if (player.phase === 'GRAD_READY') panel = <GraduationPicker player={player} busy={busy} run={run} />
-  else if (player.phase === 'ENDED') panel = <Ending player={player} />
+  else if (player.phase === 'ENDED') panel = <Ending player={player} history={story.data?.history} loadingHistory={story.isPending} />
   else if (yearChoice) panel = <YearTransitionPicker key={yearChoice} player={player} kind={yearChoice} busy={busy} run={run} />
   else if (events.isPending) panel = <Loading />
   else if (events.error) panel = <Problem error={events.error} retry={() => { void events.refetch() }} />
@@ -478,12 +479,12 @@ function GraduationPicker({ player, busy, run }: { player: PlayerView; busy: boo
   )
 }
 
-function Ending({ player }: { player: PlayerView }) {
+function Ending({ player, history, loadingHistory }: { player: PlayerView; history?: HistoryEntry[]; loadingHistory: boolean }) {
   const result = usePlayerData<EndingView>(player.id, '/ending')
   if (result.isPending) return <Loading />
   if (result.error) return <Problem error={result.error} retry={() => { void result.refetch() }} />
   const { title, body, summary, selectedPath, acceptedCompany, acceptedRole } = result.data
-  return (
+  const ending = (
     <>
       <Heading eyebrow={player.endReason === 'WITHDRAWAL' ? '학교생활 기록' : player.year ? '졸업 기록' : '입학 전형 결과'} title={title} level={2}>{body}</Heading>
       {'stage' in summary ? <div className="record-line"><p>{summary.stage}차 · {summary.score}점 · {summary.rank}위</p>
@@ -507,4 +508,6 @@ function Ending({ player }: { player: PlayerView }) {
       <Link className="btn primary wide continue" to="/">새 회차 시작</Link>
     </>
   )
+  if ('stage' in summary || !player.year || summary.schoolStatus === 'WITHDRAWN' || player.endReason === 'WITHDRAWAL') return ending
+  return <GraduationReplay id={player.id} name={player.name} summary={summary} history={history} loading={loadingHistory}>{ending}</GraduationReplay>
 }

@@ -438,3 +438,24 @@ input::placeholder { color: var(--muted); }
   .choice-card .choice-countdown { margin-block: 6px; padding-block: 4px; }
   .choice-card .panel-heading { margin-bottom: 6px; }
 }
+
+.memory-screen {
+  width: min(36rem, calc(100% - 2rem)); max-height: 92dvh; overflow: auto;
+  padding: 0; color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 4px;
+}
+.memory-screen::backdrop { background: rgb(7 14 18 / 95%); }
+.memory-heading, .memory-controls { display: flex; align-items: center; gap: .5rem; padding: .75rem 1.25rem; }
+.memory-heading h2 { flex: 1; font-size: 1rem; }
+.memory-photo { display: block; width: 100%; height: clamp(5rem, 22dvh, 12rem); object-fit: cover; object-position: center 65%; }
+.memory-caption { padding: 1.5rem; min-height: 9rem; overflow-wrap: anywhere; animation: memory-fade .55s ease-out both; }
+.memory-caption small { color: var(--accent); }
+.memory-caption h3 { font-size: .94rem; font-weight: 500; color: var(--muted); margin: .65rem 0 .25rem; }
+.memory-caption p { font: 600 clamp(1.25rem, 4.5vw, 1.9rem)/1.4 Georgia, 'Nanum Myeongjo', serif; }
+.memory-track { display: flex; gap: 3px; margin: 0 1.25rem; }
+.memory-track span { flex: 1; height: 3px; background: var(--divider); }
+.memory-track .lit { background: var(--accent); }
+.memory-controls small { margin-right: auto; color: var(--muted); }
+@keyframes memory-fade { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .memory-caption { animation: none; } }
+.graduation-result { scroll-margin-top: 6rem; }
+.graduation-result > button { margin-top: .5rem; }

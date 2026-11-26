@@ -183,7 +183,7 @@ export interface AssessmentResult {
   gradeBefore: number
   gradeAfter: number
 }
-export interface StoryView { entries: StoryEntry[] }
+export interface StoryView { entries: StoryEntry[]; history?: HistoryEntry[] }
 
 export type JobStep = 'CODING' | 'INTERVIEW' | 'RESULT'
 export interface InterviewQuestion { id?: string; questionId?: string; question: string; source: 'AI' | 'MOCK' | 'FALLBACK'; kind: 'SCHOOL' | 'COMPANY' }
@@ -205,6 +205,9 @@ export interface ApplicationView {
 }
 export interface ApplicationMutation { application: ApplicationView; change: MutationResult }
 export interface GraduationSummary {
+  path?: string
+  offer?: { companyCode?: string; role?: string }
+  fieldTrips?: { eventCode: string; choiceCode?: string }[]
   schoolStatus?: 'WITHDRAWN'
   withdrawalYear?: number
   withdrawalTurn?: number

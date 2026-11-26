@@ -176,6 +176,7 @@ async function finishWithoutOffer(page: Page) {
   await expect(choiceHeading(page, '졸업 후 진로')).toBeVisible()
   await select(page, '다시 취업 준비', '졸업 확정')
   await expect(page).toHaveURL(/\/ending\//)
+  await page.getByRole('dialog', { name: /졸업 회상/ }).getByRole('button', { name: '건너뛰기' }).click()
   await expect(choiceHeading(page, '다음 지원을 준비합니다')).toBeVisible()
 }
 
@@ -503,6 +504,17 @@ test('학기 집중과 정규 생활을 이어가고 72턴을 마쳐 채용 제�
   await advanceRegularTurn(page, resultTurn)
 
   await select(page, '웹서비스 개발팀 제안 수락', '졸업 확정')
+  const memories = page.getByRole('dialog', { name: /졸업 회상/ })
+  await memories.getByRole('button', { name: '잠시 멈추기' }).click()
+  const scenes: string[] = []
+  while (await memories.getByRole('button', { name: '다음 장면' }).count()) {
+    scenes.push(await memories.locator('.memory-caption').innerText())
+    await memories.getByRole('button', { name: '다음 장면' }).click()
+  }
+  expect(scenes.join(' ')).toContain('기숙사 생활 통합 시스템')
+  expect(scenes.join(' ')).toContain('국내 현장실습')
+  await expect(memories).toContainText('웹서비스 개발팀의 채용 제안 수락')
+  await memories.getByRole('button', { name: '자동 재생' }).click()
   await expect(choiceHeading(page, '첫 출근을 준비합니다')).toBeVisible()
   await expect(page.getByText('자격증 · 정보처리기능사')).toBeVisible()
   await expect(page.getByText('프로젝트 · 교내 행사 페이지')).toBeVisible()

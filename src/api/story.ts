@@ -57,7 +57,11 @@ export async function loadStory(player: PlayerView, signal: AbortSignal): Promis
   // Spring history includes both narrative scenes and commands such as career picks and turns.
   // The demo stores authored scenes separately.
   if (!player.school) {
-    try { return await request<StoryView>(base + '/story', { signal }) } catch (error) {
+    try {
+      const story = await request<StoryView>(base + '/story', { signal })
+      if (player.phase === 'ENDED') return { ...story, history: await readHistory(base, signal) }
+      return story
+    } catch (error) {
       if (!(error instanceof ApiError && error.status === 404)) throw error
     }
   }
@@ -66,17 +70,24 @@ export async function loadStory(player: PlayerView, signal: AbortSignal): Promis
     entries.push({ id: 'school-start', year: 1, turn: 1, title: '학교생활 시작',
       text: '대소고 1학년 1학기 학교생활을 시작했다.', dialogue: [], source: 'FALLBACK', status: 'READY' })
   }
+  const history = await readHistory(base, signal)
+  for (const log of history) {
+    const entry = toStoryEntry(log)
+    if (entry) entries.push(entry)
+  }
+  return { entries, history: player.phase === 'ENDED' ? history : undefined }
+}
+
+async function readHistory(base: string, signal: AbortSignal) {
+  const history: NarrativeLog[] = []
   let afterId = 0
   for (;;) {
     const page = await request<{ items: NarrativeLog[]; nextAfterId?: number | null }>(
       base + '/history?limit=50&afterId=' + afterId, { signal })
-    for (const log of page.items) {
-      const entry = toStoryEntry(log)
-      if (entry) entries.push(entry)
-    }
+    history.push(...page.items)
     if (page.nextAfterId == null) break
     if (page.nextAfterId <= afterId) throw new Error('기록의 다음 페이지를 확인할 수 없습니다.')
     afterId = page.nextAfterId
   }
-  return { entries }
+  return history
 }

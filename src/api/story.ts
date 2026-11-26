@@ -1,6 +1,7 @@
 import { ApiError, request } from './client'
 import { playerPath, type HistoryEntry, type PlayerView, type StoryEntry, type StoryView, type StressLoad } from './contracts'
 
+import { yearActivityScene } from '../game/year-activities'
 import { calendarResult, displayLabel, jobLabel, label } from '../game/labels'
 
 interface NarrativeLog extends HistoryEntry {
@@ -47,18 +48,22 @@ function readableScene(text: string | null | undefined, log: NarrativeLog) {
   return displayLabel(text)
 }
 
-function toStoryEntry(log: NarrativeLog): StoryEntry | undefined {
+function toStoryEntry(log: NarrativeLog, major?: string | null): StoryEntry | undefined {
   const evidence = readEvidence(log.evidenceJson)
+  const variant = yearActivityScene(log.year, log.subjectCode, major)
+  const choice = variant?.choices[log.choiceCode ?? '']
   const action = savedAction(log)
   if (!log.narrativeStatus && !log.narrative && !evidence.scene && !action) return
   const focus = { PROGRAMMING: '프로그래밍', ACADEMIC: '학업', COMMUNICATION: '의사소통' }[log.choiceCode ?? '']
   const summary = log.subjectCode?.startsWith('FOCUS_') && focus ? `학기 목표 선택 · ${focus}` :
-    displayLabel(evidence.choiceLabel) || action || undefined
+    choice || displayLabel(evidence.choiceLabel) || action || undefined
   return {
     actionSummary: summary,
     id: String(log.logId), year: log.year, turn: log.turn, beforeSchoolDay: log.beforeSchoolDay,
-    title: displayLabel(evidence.title) || action || '학교생활 기록',
-    text: readableScene(log.narrative, log) || readableScene(evidence.scene, log) || action ||
+    title: variant?.title || displayLabel(evidence.title) || action || '학교생활 기록',
+    text: (log.narrativeSource === 'LLM' && readableScene(log.narrative, log)) ||
+      (variant && choice && `${variant.situation} · ${choice}`) ||
+      readableScene(log.narrative, log) || readableScene(evidence.scene, log) || action ||
       displayLabel(evidence.choiceLabel) || displayLabel(log.choiceCode) || '학교생활 기록',
     status: log.narrativeStatus === 'PENDING' ? 'PENDING' : 'READY',
     source: log.narrativeSource === 'LLM' ? 'AI' : log.narrativeSource === 'TEMPLATE' ? 'MOCK' : 'FALLBACK',
@@ -87,7 +92,7 @@ export async function loadStory(player: PlayerView, signal: AbortSignal): Promis
   }
   const history = await readHistory(base, signal)
   for (const log of history) {
-    const entry = toStoryEntry(log)
+    const entry = toStoryEntry(log, player.major)
     if (entry) entries.push(entry)
   }
   return { entries, history: player.phase === 'ENDED' ? history : undefined }

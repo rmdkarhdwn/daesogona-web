@@ -1,5 +1,6 @@
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
+import { yearActivityScene } from './year-activities'
 import { readEvidence } from '../api/story'
 import { request } from '../api/client'
 import {
@@ -101,12 +102,13 @@ export function History({ player }: { player: PlayerView }) {
         entries?.length ? (
           <ol className="history-list">{entries.map((entry) => {
             const evidence = readEvidence(entry.evidenceJson)
-            const choice = displayLabel(evidence.choiceLabel) ?? displayLabel(entry.choiceCode)
+            const variant = yearActivityScene(entry.year, entry.subjectCode, player.major)
+            const choice = variant?.choices[entry.choiceCode ?? ''] ?? displayLabel(evidence.choiceLabel) ?? displayLabel(entry.choiceCode)
             return (
               <li key={entry.logId}>
                 <span>{entry.beforeSchoolDay ? `비포스쿨 ${entry.beforeSchoolDay}일` : entry.year ? `${entry.year}학년 ${entry.turn}턴` : '입학 전형'}</span>
                 <strong>{entry.resultCode === 'FIELD_LEARNING_PREPARED' ? '현장학습 준비 완료' :
-                  entry.resultCode === 'FIELD_LEARNING_COMPLETED' ? '현장학습 참가 완료' : calendarResult(entry.resultCode) ?? displayLabel(evidence.title) ?? displayLabel(entry.subjectCode) ?? '학교생활 기록'}</strong>
+                  entry.resultCode === 'FIELD_LEARNING_COMPLETED' ? '현장학습 참가 완료' : calendarResult(entry.resultCode) ?? variant?.title ?? displayLabel(evidence.title) ?? displayLabel(entry.subjectCode) ?? '학교생활 기록'}</strong>
                 {choice && <small>{choice}</small>}
                 {entry.admission && <small>{label(entry.admission.admissionTrack)} · {entry.admission.score}점 · {label(entry.resultCode)}
                   {entry.admission.minimumScore !== undefined && ` · 통과 기준 ${entry.admission.minimumScore}점`}</small>}

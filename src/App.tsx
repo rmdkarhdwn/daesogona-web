@@ -19,6 +19,7 @@ import { CurrentStory, StoryJournal } from './game/story'
 import { CampusScene, DashboardLinks, SchoolRail, StudentRail } from './game/dashboard'
 import { InterviewForm } from './game/interview'
 import { isNarshaParticipation, NarshaParticipation } from './game/narsha-participation'
+import { availableInYear, forSchoolYear } from './game/year-activities'
 import { EventSource, NarshaRecord } from './game/school-life'
 import { ChoiceCountdown, ChoiceTimerScope, randomChoice, TimedChoices, useChoiceTimer } from './game/choice-timer'
 import { CampusPhoto, ChoiceForm, Dialog, Frame, Heading, Journey, Loading, PhotoScene, Problem, Receipt, StatList } from './game/ui'
@@ -146,7 +147,9 @@ function Game({ player, busy, receipt, feedback, commandFailed, run }: {
   )
   const [speed, setSpeed] = useState(1)
   const entries = story.data?.entries ?? []
-  const visible = ordinary && !yearChoice ? events.data ?? [] : []
+  const visible = ordinary && !yearChoice ? (events.data ?? [])
+    .filter(event => event.required || availableInYear(player.year, event.code))
+    .map(event => forSchoolYear(player.year, event, player.major)) : []
   const requiredEvents = visible.filter((event) => event.required)
   const eventOptions = requiredEvents.length ? requiredEvents : visible
   const current = eventOptions.find((event) => event.code === selectedEvent) ?? eventOptions[0]

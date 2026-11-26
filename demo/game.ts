@@ -1,3 +1,4 @@
+import { availableInYear, forSchoolYear, yearActivityScene } from '../src/game/year-activities.ts'
 import { createHash, randomInt, randomUUID } from 'node:crypto'
 import { applicationTurn, codingTurn, interviewTurn, resultTurn, semesterTurns, yearTurns } from '../src/game/schedule.ts'
 import { isFieldLearningRoute } from '../src/game/field-learning.ts'
@@ -206,10 +207,10 @@ function drawSchoolEvent(g: DemoGame) {
   const previous = (turn - 1) % semesterTurns !== 0 && g.history.find(entry =>
     entry.year === year && entry.turn === turn - 1 && entry.dailyEvent)
   const followUp = previous && schoolFollowUp(previous.subjectCode, previous.choiceCode)
-  if (followUp) return followUp
+  if (followUp && availableInYear(year, followUp.code)) return forSchoolYear(year, followUp, g.view.major)
   const firstLab = year === 1 && turn === 2 && g.view.semesterFocus
   if (!firstLab && random.nextInt(100) >= 55) return undefined
-  const pool = [...dailySchoolEvents, ...schoolActivityEvents(year, turn)]
+  const pool = [...dailySchoolEvents, ...schoolActivityEvents(year, turn)].filter(event => availableInYear(year, event.code))
   const period = (turn - 1) % semesterTurns + 1
   if ([4, 5, 8, 9, 11].includes(period)) pool.push(dailyExamEvent)
   const record = g.narsha
@@ -224,7 +225,7 @@ function drawSchoolEvent(g: DemoGame) {
     .filter((choice): choice is (typeof selected.choices)[number] => choice !== undefined)
   const drawn = { ...selected, choices: ordered?.length === selected.choices.length ? ordered : random.shuffled(selected.choices) }
   rememberEvent(g, key, drawn)
-  return drawn
+  return forSchoolYear(year, drawn, g.view.major)
 }
 
 function applyStressPressure(g: DemoGame): StressLoad {
@@ -564,7 +565,11 @@ function chooseEvent(g: DemoGame, code: string, choiceCode: string, customTopic?
   const entry = log(g, before, 'EVENT_CHOICE', code, resultCode, choiceCode)
   if (admissionResult) entry.admission = admissionResult
   if (stress) entry.stressEvent = stress
-  if (code.startsWith('DAILY_')) entry.dailyEvent = { title: event.title, choiceLabel: choice.label, situation: event.situation, outcome: choice.outcome ?? choiceOutcome(event.code, choice.code) }
+  if (code.startsWith('DAILY_')) {
+    const variant = yearActivityScene(before.year, code, before.major)
+    entry.dailyEvent = { title: event.title, choiceLabel: choice.label, situation: event.situation,
+      outcome: variant ? undefined : choice.outcome ?? choiceOutcome(event.code, choice.code) }
+  }
   if (details?.narsha && g.narsha) entry.narsha = { ...g.narsha }
   if (isFocus) entry.semesterFocus = g.view.semesterFocus
   if (code === 'VACATION') entry.vacation = before.vacation

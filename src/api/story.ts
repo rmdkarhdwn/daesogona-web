@@ -38,6 +38,15 @@ function savedAction(log: NarrativeLog) {
   }
 }
 
+// Older server templates embed command identifiers in otherwise Korean sentences.
+function readableScene(text: string | null | undefined, log: NarrativeLog) {
+  if (!text) return
+  const tokens = text.match(/\b[A-Z][A-Z0-9_]*\b/g) ?? []
+  if (tokens.some(token => token === log.resultCode ||
+      (token.includes('_') && (token === log.subjectCode || token === log.choiceCode)))) return
+  return displayLabel(text)
+}
+
 function toStoryEntry(log: NarrativeLog): StoryEntry | undefined {
   const evidence = readEvidence(log.evidenceJson)
   const action = savedAction(log)
@@ -48,7 +57,9 @@ function toStoryEntry(log: NarrativeLog): StoryEntry | undefined {
   return {
     actionSummary: summary,
     id: String(log.logId), year: log.year, turn: log.turn, beforeSchoolDay: log.beforeSchoolDay,
-    title: displayLabel(evidence.title) || action || '학교생활 기록', text: displayLabel(log.narrative) || displayLabel(evidence.scene) || action,
+    title: displayLabel(evidence.title) || action || '학교생활 기록',
+    text: readableScene(log.narrative, log) || readableScene(evidence.scene, log) || action ||
+      displayLabel(evidence.choiceLabel) || displayLabel(log.choiceCode) || '학교생활 기록',
     status: log.narrativeStatus === 'PENDING' ? 'PENDING' : 'READY',
     source: log.narrativeSource === 'LLM' ? 'AI' : log.narrativeSource === 'TEMPLATE' ? 'MOCK' : 'FALLBACK',
     stressLoad: Array.isArray(evidence.stressLoad?.sources) ? evidence.stressLoad : null,

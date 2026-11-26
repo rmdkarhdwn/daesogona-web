@@ -33,7 +33,7 @@ test('방학과 새 이벤트의 처리 코드를 결과 안내와 기록에 노
   const result = 'SEMESTER_ADVANCED'
   const text = '여름방학을 마치고 2학기가 시작됐습니다.'
   const logs = [{ logId: 1, year: 1, turn: 10, kind: 'EVENT', subjectCode: 'UNKNOWN_EVENT', choiceCode: 'NEW_OPTION',
-    resultCode: 'NEW_RESULT', evidenceJson: JSON.stringify({ title: '동아리 모임', choiceLabel: '동아리 발표 준비' }) }]
+    resultCode: 'NEW_RESULT', narrative: '선택 결과는 NEW_RESULT였다.', evidenceJson: JSON.stringify({ title: '동아리 모임', choiceLabel: '동아리 발표 준비' }) }]
   await page.route('**/api/v1/**', route => {
     const path = new URL(route.request().url()).pathname
     const ok = (data: unknown) => route.fulfill({ json: { success: true, data } })
@@ -41,7 +41,7 @@ test('방학과 새 이벤트의 처리 코드를 결과 안내와 기록에 노
       view.turn++
       view.school!.vacationPending = false
       logs.push({ logId: 2, year: 1, turn: 12, kind: 'EVENT_CHOICE', subjectCode: subject, choiceCode: 'REST', resultCode: result,
-        evidenceJson: JSON.stringify({ scene: subject + ' · ' + result }) })
+        narrative: `나는 휴식을 선택했고, 결과는 ${result}였다.`, evidenceJson: JSON.stringify({ scene: subject + ' · ' + result }) })
       return ok({ player: view, actionCode: subject, resultCode: result, statDelta: { S: -3 } })
     }
     if (path.endsWith('/events')) return ok(view.turn === 12 ? [{ code: subject, title: '여름방학', situation: '방학 계획을 정합니다.',

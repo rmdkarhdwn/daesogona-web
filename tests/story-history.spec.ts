@@ -52,7 +52,7 @@ test('방학과 새 이벤트의 처리 코드를 결과 안내와 기록에 노
   })
   await page.addInitScript(id => sessionStorage.setItem('daesogo.playback.' + id, 'paused'), view.id)
   await page.goto('/play/' + view.id)
-  await page.getByRole('button', { name: '방학 동안 쉬기' }).click()
+  await page.getByRole('button', { name: '턴 종료' }).click()
   await expect(page.locator('.receipt')).toContainText(text)
   await expect(page.locator('.receipt')).toContainText('스트레스 -3')
   await page.reload()

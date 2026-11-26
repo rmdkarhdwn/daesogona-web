@@ -53,7 +53,9 @@ test('기존 서버가 2학년에 악기 활동을 보내도 선택 대기 없�
   await expect(page.locator('#current-choices')).not.toContainText('1인 1악기')
   await page.getByRole('button', { name: '턴 종료' }).click()
   const activity = page.getByRole('button', { name: '사진을 다시 나누고 분류 결과 비교하기' })
-  await activity.click()
+  await expect(activity).toHaveCount(0)
+  await page.getByRole('button', { name: '턴 종료' }).click()
+  await expect.poll(() => saved).toBe(true)
   await page.reload()
   await expect(page.locator('#current-story')).toContainText('사진을 다시 나누고 분류 결과 비교하기')
 })
@@ -99,7 +101,7 @@ test('현장실습 회고는 선발 기록 이후에만 국내·해외 경로로
     route = choice
     result = status
     await page.goto('/play/' + view.id)
-    await expect(page.locator('#current-selection h2')).toHaveText(title)
+    await expect(page.getByRole('dialog')).toHaveCount(0)
     await expect(page.locator('#current-story')).toContainText(title)
     await expect(page.locator('#current-story .recent-entry').last()).toContainText('공고의 한 줄과 내 경험 연결하기')
   }

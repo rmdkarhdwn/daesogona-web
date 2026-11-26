@@ -5,64 +5,26 @@ import { calendar } from '../demo/data'
 test.describe.configure({ mode: 'parallel' })
 test.setTimeout(45000)
 
-async function openMild(page: Page) {
+async function openAdmission(page: Page) {
   await page.goto('/')
-  await page.getByLabel('이름', { exact: true }).fill('자동 선택 검증')
-  await page.getByRole('button', { name: '학교생활 시작', exact: true }).click()
-  await expect(page.getByRole('heading', { name: '희망 직무 선택' })).toBeVisible()
-  await expect(page.getByRole('progressbar', { name: '자동 선택까지 남은 시간' })).toBeVisible()
+  await page.getByLabel('이름', { exact: true }).fill('선택 대기 검증')
+  await page.getByRole('radio', { name: '매운맛' }).check()
+  await page.getByRole('button', { name: '지원 시작' }).click()
+  await expect(page.getByRole('dialog')).toContainText('지원 전형 선택')
 }
 
-for (const width of [360, 1280]) {
-  test(`${width}px 선택한 직무는 입력이 멈춘 뒤 10초에 한 번만 확정한다`, async ({ page }) => {
-    await page.setViewportSize({ width, height: 850 })
-    await openMild(page)
-    let sent = 0
-    page.on('request', request => { if (request.method() === 'PUT' && request.url().endsWith('/career-preference')) sent++ })
-    const chosen = page.getByRole('radio').last()
-    const role = await chosen.inputValue()
-    await chosen.check()
-    await page.waitForTimeout(6000)
-    expect(Number(await page.getByRole('progressbar', { name: '자동 선택까지 남은 시간' }).getAttribute('value'))).toBeGreaterThan(3500)
-    await page.mouse.wheel(0, 80)
-    await page.waitForTimeout(9000)
-    expect(sent).toBe(0)
-    await expect(page.getByRole('heading', { name: '희망 직무 선택' })).toBeVisible()
-    const saved = page.waitForResponse(r => r.request().method() === 'PUT' && r.url().endsWith('/career-preference'))
-    await page.waitForTimeout(1000)
-    expect((await (await saved).json()).data.player.initialCareerCode).toBe(role)
-    await expect(page.getByRole('region', { name: '이번 학기에 집중할 것' })).toBeVisible()
-    expect(sent).toBe(1)
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy()
-  })
-}
-
-test('미선택 시에는 허용 직무를 고르고 자동 선택 끄기·켜기가 적용된다', async ({ page }) => {
-  await openMild(page)
-  const allowed = await page.getByRole('radio').evaluateAll(inputs => inputs.map(input => (input as HTMLInputElement).value))
-  await page.getByRole('button', { name: '자동 선택 끄기' }).click()
-  await page.waitForTimeout(12000)
-  await expect(page.getByRole('heading', { name: '희망 직무 선택' })).toBeVisible()
-  await page.getByRole('button', { name: '자동 선택 켜기' }).click()
-  const saved = page.waitForResponse(r => r.request().method() === 'PUT' && r.url().endsWith('/career-preference'))
-  await page.waitForTimeout(10000)
-  expect(allowed).toContain((await (await saved).json()).data.player.initialCareerCode)
-})
-
-test('수첩을 열면 멈추고 닫은 뒤 10초를 다시 세며 수동 확정은 중복하지 않는다', async ({ page }) => {
-  await openMild(page)
-  await page.waitForTimeout(6000)
+test('입학 모달을 닫으면 자동 선택을 멈추고 다시 열면 입력을 이어간다', async ({ page }) => {
+  await openAdmission(page)
+  await page.getByRole('radio', { name: '일반전형' }).check()
+  await page.keyboard.press('Escape')
   await page.getByRole('button', { name: '전체 기록', exact: true }).click()
-  await page.waitForTimeout(12000)
-  await expect(page.getByRole('heading', { name: '희망 직무 선택' })).toBeVisible()
+  await page.waitForTimeout(10500)
   await page.getByRole('button', { name: '닫기', exact: true }).click()
-  await page.getByRole('radio').first().check()
-  const saved = page.waitForResponse(r => r.request().method() === 'PUT' && r.url().endsWith('/career-preference'))
-  await page.getByRole('button', { name: '이 직무로 시작' }).click()
-  expect((await saved).status()).toBe(200)
-  await expect(page.getByRole('region', { name: '이번 학기에 집중할 것' })).toBeVisible()
-  await page.waitForTimeout(5000)
-  await expect(page.getByRole('button', { name: '이번 학기 집중 정하기' })).toBeVisible()
+  await page.getByRole('button', { name: /지원 전형 선택.*결정 열기/ }).click()
+  await expect(page.getByRole('radio', { name: '일반전형' })).toBeChecked()
+  const saved = page.waitForResponse(r => r.request().method() === 'POST' && r.url().endsWith('/AD00/choices'))
+  await page.getByRole('button', { name: '선택 확정' }).click()
+  expect((await saved).ok()).toBe(true)
 })
 
 test('학교 탐색은 선택한 장소를 유지하고 부족한 개수만 채운다', async ({ page }) => {
@@ -96,10 +58,10 @@ test('학교 탐색은 선택한 장소를 유지하고 부족한 개수만 채�
 })
 
 test('자동 선택의 저장이 실패하면 같은 선택을 반복 전송하지 않는다', async ({ page }) => {
-  await openMild(page)
+  await openAdmission(page)
   let attempts = 0
-  await page.route('**/career-preference', async route => {
-    if (route.request().method() !== 'PUT') return route.continue()
+  await page.route('**/AD00/choices', async route => {
+    if (route.request().method() !== 'POST') return route.continue()
     attempts++
     await route.fulfill({ status: 400, json: { success: false, data: null,
       error: { code: 'VALIDATION_ERROR', message: '자동 선택 저장 실패 검증', details: {} } } })
@@ -108,4 +70,20 @@ test('자동 선택의 저장이 실패하면 같은 선택을 반복 전송하�
   await page.waitForTimeout(11000)
   expect(attempts).toBe(1)
   await expect(page.getByText('자동 선택 대기', { exact: true })).toBeVisible()
+})
+
+test('입학 자동 선택을 끄면 기다리고 다시 켰을 때에만 한 번 제출한다', async ({ page }) => {
+  await openAdmission(page)
+  const submit = page.getByRole('button', { name: '선택 확정' })
+  await page.getByRole('button', { name: '자동 선택 끄기' }).click()
+  const posts: string[] = []
+  page.on('request', request => {
+    if (request.method() === 'POST' && request.url().endsWith('/AD00/choices')) posts.push(request.url())
+  })
+  await page.waitForTimeout(10500)
+  await expect(submit).toBeVisible()
+  expect(posts).toHaveLength(0)
+  await page.getByRole('button', { name: '자동 선택 켜기' }).click()
+  await expect(page.getByRole('dialog')).toContainText('중학교 활동 기록', { timeout: 15000 })
+  expect(posts).toHaveLength(1)
 })

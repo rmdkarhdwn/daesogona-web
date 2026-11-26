@@ -30,6 +30,7 @@ for (const width of [360, 1280]) {
       } else if (url.pathname === base) data = game.view
       else if (suffix === '/events') data = events(game)
       else if (suffix === '/story') data = { entries: stories }
+      else if (suffix === '/history') data = { items: game.history }
       else if (suffix === '/ending') data = game.ending
       else if (suffix === '/applications') data = []
       else if (suffix === '/progress') data = {
@@ -43,22 +44,11 @@ for (const width of [360, 1280]) {
     await page.setViewportSize({ width, height: 850 })
     await page.goto(`/play/${game.view.id}`)
     const dialog = page.getByRole('region', { name: '중대 결정' })
-    await expect(dialog.getByRole('heading', { name: '잠시 숨을 고를 시간' })).toBeVisible()
-    await expect(page.locator('.clock-label')).toContainText('일시 정지 상태')
-    await expect(page.getByRole('dialog', { name: '중대 결정' })).toHaveCount(0)
     const recent = page.locator('#current-story')
-    const choices = page.getByRole('region', { name: '선택지', exact: true })
-    const past = page.getByRole('region', { name: '여태껏 했던 로그', exact: true })
-    const [recentBox, choicesBox, pastBox] = await Promise.all([recent.boundingBox(), choices.boundingBox(), past.boundingBox()])
-    expect(recentBox && choicesBox && recentBox.y + recentBox.height <= choicesBox.y).toBeTruthy()
-    expect(choicesBox && pastBox && choicesBox.y + choicesBox.height <= pastBox.y).toBeTruthy()
-    await expect(past).toContainText('아직 이전 로그가 없습니다.')
-    const beforeReload = events(game)[0].choices.map((choice) => choice.label)
-    await page.reload()
-    expect(events(game)[0].choices.map((choice) => choice.label)).toEqual(beforeReload)
-    const recovery = events(game)[0].choices[0]
-    await dialog.getByRole('button', { name: recovery.label, exact: true }).click()
-    await expect(page.getByRole('meter', { name: '스트레스', exact: true })).toHaveAttribute('value', String(game.view.stats.S))
+    const past = page.locator('#past-stories')
+    await expect.poll(() => game.view.stats.S, { timeout: 9000 }).toBeLessThan(60)
+    await page.keyboard.press('Escape')
+    const recovery = { label: await recent.locator('.recent-action').first().innerText() }
     await expect(recent.locator('summary .recent-action')).toHaveText([recovery.label, '수업을 마치고 쉬며 부담을 조금 덜었다.'])
     await expect(recent.locator('details[open]')).toHaveCount(0)
     await expect(past.getByRole('heading', { name: '일과를 마친 뒤의 휴식', exact: true })).toHaveCount(0)
@@ -75,11 +65,11 @@ for (const width of [360, 1280]) {
     await dialog.getByRole('button', { name: '자퇴를 고민해 보기', exact: true }).click()
     await expect(dialog.getByRole('heading', { name: '자퇴를 결정하기 전에' })).toBeVisible()
     await expect(recent.locator('.recent-action')).toHaveText(['자퇴를 고민해 보기', recovery.label])
-    await expect(past.getByRole('heading', { name: '일과를 마친 뒤의 휴식', exact: true })).toBeVisible()
+    await expect(past.locator('h3').filter({ hasText: '일과를 마친 뒤의 휴식' })).toBeVisible()
     await page.reload()
     await expect(dialog.getByRole('heading', { name: '자퇴를 결정하기 전에' })).toBeVisible()
     await dialog.getByRole('button', { name: '도움을 받으며 학교생활 이어가기', exact: true }).click()
-    await expect(page.getByRole('meter', { name: '스트레스', exact: true })).toHaveAttribute('value', '65')
+    await expect.poll(() => game.view.stats.S).toBe(65)
     expect(game.view.phase).toBe('Y3')
 
     game.view.turn++

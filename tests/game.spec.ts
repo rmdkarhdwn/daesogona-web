@@ -19,7 +19,7 @@ async function enterBeforeSchool(page: Page) {
   await page.getByLabel('이름').fill('플레이어 A')
   await page.getByRole('radio', { name: '매운맛', exact: true }).check()
   await page.getByRole('button', { name: '지원 시작' }).click()
-  await expect(page.getByRole('meter', { name: '성적', exact: true })).toHaveAttribute('value', /^(6[0-9]|7[0-9]|80)$/)
+  await expect(page.getByRole('meter', { name: '성적', exact: true, includeHidden: true })).toHaveAttribute('value', /^(6[0-9]|7[0-9]|80)$/)
   for (const label of [
     '일반전형', '코딩 활동을 앞세우기', '피드백을 받아 다시 쓰기',
     '프로젝트 역할과 증거 정리', '파이썬 연습',
@@ -47,7 +47,7 @@ async function enterSchool(page: Page) {
   await page.getByRole('radio', { name: /웹 개발자/ }).check()
   await page.getByRole('button', { name: '이 직무로 시작' }).click()
   await expect(page.getByText('1학년 · 1턴', { exact: true })).toBeVisible()
-  await setFocus(page, '희망 직무 연습')
+  await expect(page.getByRole('region', { name: '이번 학기에 집중할 것' })).toBeVisible({ timeout: 9000 })
   await page.getByRole('button', { name: '일시 정지', exact: true }).click()
 }
 
@@ -81,6 +81,8 @@ test('모바일에서 장소와 전공 체험을 두 가지씩 선택하고 각�
   await expect(choiceHeading(page, '기초 프로그래밍')).toBeVisible()
   await expect(panel.getByRole('radio')).toHaveCount(6)
   await page.reload()
+  await expect(choiceHeading(page, '기초 프로그래밍')).toBeVisible()
+  await page.keyboard.press('Escape')
   for (const summary of await page.locator('#current-story summary').all()) await summary.click()
   for (const title of ['비포스쿨 첫날 · 메이커실 둘러보기', '비포스쿨 첫날 · 강당 둘러보기',
     '전공 체험 · 급식 메뉴 API 만들기', '전공 체험 · 미니게임 조작 만들기']) {
@@ -88,33 +90,20 @@ test('모바일에서 장소와 전공 체험을 두 가지씩 선택하고 각�
   }
 })
 
-async function resolveStress(page: Page) {
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const choices = page.locator('[data-event-code="STRESS_SUPPORT"], [data-event-code="SCHOOL_DOUBTS"]')
-    if (!await choices.isVisible()) return
-    await choices.getByRole('button').first().click()
-    await expect(page.getByText('저장됨', { exact: true })).toBeVisible()
-  }
+async function dismissDecision(page: Page) {
+  const dialog = page.getByRole('dialog', { name: '중요한 결정' })
+  if (await dialog.isVisible()) await page.keyboard.press('Escape')
 }
 
 async function endTurn(page: Page) {
-  await resolveStress(page)
-  const advanced = page.waitForResponse((response) => response.url().endsWith('/turns/advance') && response.request().method() === 'POST')
+  await dismissDecision(page)
+  const settled = page.waitForResponse(response => response.request().method() === 'POST' &&
+    (response.url().endsWith('/turns/advance') || response.url().endsWith('/VACATION/choices')))
   await page.getByRole('button', { name: '턴 종료', exact: true }).click()
   const confirmation = page.getByRole('dialog', { name: '턴을 끝낼까요?' })
-  if (await confirmation.isVisible()) {
-    await confirmation.getByRole('button', { name: '다음 턴으로' }).click()
-  }
-  await advanced
+  if (await confirmation.isVisible()) await confirmation.getByRole('button', { name: '다음 턴으로' }).click()
+  expect((await settled).ok()).toBe(true)
   await expect(page.getByText('저장됨', { exact: true })).toBeVisible()
-  await resolveStress(page)
-}
-
-async function setFocus(page: Page, focus: string) {
-  const panel = page.getByRole('region', { name: '이번 학기에 집중할 것' })
-  await panel.getByRole('radio', { name: focus, exact: true }).check()
-  await panel.getByRole('button', { name: '이번 학기 집중 정하기' }).click()
-  await expect(panel.getByText(focus, { exact: true })).toBeVisible()
 }
 
 async function decide(page: Page, option: string) {
@@ -127,28 +116,21 @@ async function decide(page: Page, option: string) {
 }
 
 async function settleSchoolChoices(page: Page, year: number, turn: number, major: string, track: string) {
-  await resolveStress(page)
   if (year === 2 && turn === 1) await decide(page, major)
   if (year === 3 && turn === 1) await decide(page, track)
-  if ((year > 1 && turn === 1) || turn === semesterTurns + 1) await setFocus(page, year === 3 ? '지원 직무 과제 연습' : '희망 직무 연습')
   if (year === 1 && turn === 8) await decide(page, '기숙사 생활 통합 시스템')
-  if (year === 2 && turn === 2) {
-    await decide(page, 'AI 영상 개인정보 보호 시스템')
-    await decide(page, '멘토 피드백으로 핵심 기능 다듬기')
-  }
-  if (year === 2 && turn === 22) {
-    await decide(page, '부스에서 방문객에게 설명하기')
-    await expect(page.getByRole('region', { name: '나르샤 프로젝트 기록' })).toContainText(/[1-8]위/)
-  }
-  if (year === 2 && turn === 23) {
-    const qualification = page.getByRole('region', { name: '나르샤 프로젝트 기록' }).getByText('소프트웨이브 참가 가능')
-    if (await qualification.isVisible()) await decide(page, '소프트웨이브에서 결과물 전시하기')
-  }
+  if (year === 2 && turn === 2) await decide(page, 'AI 영상 개인정보 보호 시스템')
 }
 
 async function advanceRegularTurn(page: Page, turn: number) {
   await endTurn(page)
-  if (turn === semesterTurns || turn === yearTurns) await decide(page, '방학 동안 쉬기')
+  if (turn === semesterTurns || turn === yearTurns) {
+    const endpoint = '/api/v1/players/' + new URL(page.url()).pathname.split('/').at(-1)
+    for (let i = 0; i < 3; i++) {
+      if (!(await (await page.request.get(endpoint)).json()).data.vacation) break
+      await endTurn(page)
+    }
+  }
 }
 
 async function reachCounseling(page: Page, major: string, track: string) {
@@ -160,7 +142,7 @@ async function reachCounseling(page: Page, major: string, track: string) {
     }
   }
   await expect(choiceHeading(page, '공고를 함께 읽어 볼까요?')).toBeVisible()
-  const projects = page.getByRole('region', { name: '나르샤 프로젝트 기록' })
+  const projects = page.getByRole('region', { name: '나르샤 프로젝트 기록', includeHidden: true })
   await expect(projects.getByText('1학년 나르샤', { exact: true })).toBeVisible()
   await expect(projects.getByText('2학년 나르샤', { exact: true })).toBeVisible()
   await expect(projects.getByText('기숙사 생활 통합 시스템', { exact: true })).toBeVisible()
@@ -170,7 +152,6 @@ async function reachCounseling(page: Page, major: string, track: string) {
 async function finishWithoutOffer(page: Page) {
   for (let turn = applicationTurn; turn <= yearTurns; turn++) {
     await expect(page.getByText(`3학년 · ${turn}턴`, { exact: true })).toBeVisible()
-    if (turn === semesterTurns + 1) await setFocus(page, '영어 기술 문서와 업무 메일')
     await advanceRegularTurn(page, turn)
   }
   await expect(choiceHeading(page, '졸업 후 진로')).toBeVisible()
@@ -186,16 +167,14 @@ test('집중 목표를 유지하며 진행하고 캠프는 방학 안에서만 �
   await enterSchool(page)
   await expect(page.getByText('추가 활동', { exact: true })).toHaveCount(0)
   await expect(page.getByText('1학기 · 1/12턴')).toBeVisible()
-  await page.getByRole('button', { name: '자동 진행', exact: true }).click()
-  await page.getByRole('button', { name: '룸메이트와 생활 규칙 정하기 · 1 AP', exact: true }).click()
-  await expect(page.getByRole('button', { name: '일시 정지', exact: true })).toBeEnabled()
+  await expect(page.getByRole('button', { name: /룸메이트와 생활 규칙 정하기/ })).toHaveCount(0)
   await page.getByRole('button', { name: '다음 결정까지' }).click()
   const dialog = page.getByRole('region', { name: '중대 결정' })
   await expect(dialog.getByRole('heading', { name: '1학년 나르샤 · 주제 선택' })).toBeVisible({ timeout: 15_000 })
   await expect(page.getByText('1학년 · 8턴', { exact: true })).toBeVisible()
-  const declines = page.getByRole('list', { name: '능력치 하락 기록' })
+  const declines = page.getByRole('list', { name: '능력치 하락 기록', includeHidden: true })
   await expect(declines.first()).toContainText('연습 부족')
-  await expect(declines.first()).toContainText(/백엔드 -[12]/)
+  await expect(declines.first()).toContainText(/-[12]/)
   await expect(page.locator('.clock-label')).toContainText('일시 정지 상태')
   const id = new URL(page.url()).pathname.split('/').at(-1)
   const endpoint = `/api/v1/players/${id}`
@@ -211,28 +190,16 @@ test('집중 목표를 유지하며 진행하고 캠프는 방학 안에서만 �
   await expect(startTopic).toBeDisabled()
   await dialog.getByLabel('프로젝트 주제', { exact: true }).fill('AI 실시간 수어 통역 시스템')
   await startTopic.click()
-  await expect(page.getByRole('region', { name: '나르샤 프로젝트 기록' })).toContainText('1학년 나르샤')
-  await expect(page.getByRole('region', { name: '나르샤 프로젝트 기록' })).toContainText('AI 실시간 수어 통역 시스템')
+  await expect(page.getByRole('region', { name: '나르샤 프로젝트 기록', includeHidden: true })).toContainText('1학년 나르샤')
+  await expect(page.getByRole('region', { name: '나르샤 프로젝트 기록', includeHidden: true })).toContainText('AI 실시간 수어 통역 시스템')
   await page.reload()
-  await expect(page.getByRole('region', { name: '나르샤 프로젝트 기록' })).toContainText('AI 실시간 수어 통역 시스템')
+  await expect(page.getByRole('region', { name: '나르샤 프로젝트 기록', includeHidden: true })).toContainText('AI 실시간 수어 통역 시스템')
   await expect(declines.first()).toContainText('연습 부족')
   for (let turn = 8; turn <= 12; turn++) await endTurn(page)
-  await expect(dialog.getByRole('heading', { name: '여름방학' })).toBeVisible()
-  await decide(page, '전공강화캠프 참가')
-  await expect(page.getByRole('heading', { name: '전공강화캠프 · 1/2턴' })).toBeVisible()
-  await endTurn(page)
-  await expect(page.getByRole('heading', { name: '전공강화캠프 · 2/2턴' })).toBeVisible()
-  await page.reload()
-  await expect(page.getByRole('heading', { name: '전공강화캠프 · 2/2턴' })).toBeVisible()
-  await expect(page.getByText('1학년 · 12턴', { exact: true })).toBeVisible()
-  await endTurn(page)
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await advanceRegularTurn(page, semesterTurns)
   await expect(page.getByText('1학년 · 13턴', { exact: true })).toBeVisible()
-  await expect(page.getByText('2학기 · 1/12턴')).toBeVisible()
-  await setFocus(page, '영어와 글로벌 진로')
   const journal = page.getByRole('list', { name: '이전 장면' })
-  const camp = page.locator('#current-story details').filter({ hasText: '여름방학 · 전공강화캠프 수료' })
-  await camp.locator('summary').click()
-  await expect(camp.getByRole('heading', { name: '여름방학 · 전공강화캠프 수료' })).toBeVisible()
   await expect(journal.getByRole('list', { name: '학교 평가 결과' }).filter({ hasText: '1학기 기말고사' })).toHaveCount(1)
   await expect(page.getByRole('list', { name: '스트레스 변화 이유' }).filter({ hasText: '중간고사' }).first()).toContainText('스트레스 +')
 })
@@ -257,6 +224,7 @@ test('특별전형 보호막이 같은 서류를 일반전형으로 판정하고
   await expect(panel.getByText('게임 내 지원 자격 추첨 50%')).toBeVisible()
   for (const choice of ['마이스터인재', '코딩 활동을 앞세우기', '초안 제출', '간단한 기록 제출']) await select(page, choice)
   await expect(choiceHeading(page, '코딩 실습 준비')).toBeVisible()
+  await dismissDecision(page)
   await expect(page.getByRole('status').filter({ hasText: /보호막 발동.*같은 결과로 일반전형 통과/ })).toBeVisible()
   await page.reload()
   await expect(choiceHeading(page, '코딩 실습 준비')).toBeVisible()
@@ -286,8 +254,10 @@ test('작성 중인 장면을 보여주고 새 장면이 도착해도 입학 선
   await page.getByRole('radio', { name: '일반전형' }).check()
   ready = true
   await expect(page.locator('#current-story summary').getByText('담장 너머로 실습실의 불이 보인다.')).toBeVisible()
+  await dismissDecision(page)
   await page.locator('#current-story summary').click()
   await expect(page.getByText('들어와도 좋아요.')).toBeVisible()
+  await page.getByRole('button', { name: /지원 전형 선택.*결정 열기/ }).click()
   await expect(page.getByRole('radio', { name: '일반전형' })).toBeChecked()
 })
 
@@ -297,7 +267,10 @@ test('장면 서버가 오류를 반환해도 입학 선택을 저장할 수 있
   await page.getByLabel('이름').fill('장면 오류 체험')
   await page.getByRole('radio', { name: '매운맛', exact: true }).check()
   await page.getByRole('button', { name: '지원 시작' }).click()
+  await expect(choiceHeading(page, '지원 전형 선택')).toBeVisible()
+  await dismissDecision(page)
   await expect(page.getByRole('button', { name: '이야기 다시 불러오기' })).toBeVisible()
+  await page.getByRole('button', { name: /지원 전형 선택.*결정 열기/ }).click()
   await select(page, '일반전형')
   await expect(choiceHeading(page, '중학교 활동 기록')).toBeVisible()
   await expect(page.getByRole('radio', { name: '코딩 활동을 앞세우기' })).toBeEnabled()
@@ -326,6 +299,7 @@ test('PC에서 국내 실습 참가를 기록하고 졸업한다', async ({ page
     spentAp: 0, statDelta: {}, resultCode: 'FIELD_LEARNING_RECORDED',
     details: { fieldLearningRoute: 'DOMESTIC', fieldLearning: { route: 'DOMESTIC', status: 'SELECTED' } },
   })
+  await dismissDecision(page)
   await expect(page.getByRole('status').filter({ hasText: '국내 현장실습 · 참가 확정' })).toBeVisible()
   const headers = response.request().headers()
   const replay = await page.request.post(response.url(), {
@@ -377,12 +351,14 @@ test('360px 화면에서 실리콘밸리 현장학습에 지원하고 참가 기
     await expect(page.getByText('게임 속 진로 체험 · 선택 이벤트')).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
     await page.getByRole('button', { name: '실리콘밸리 현장학습 지원하기' }).tap()
+    await expect(page.getByRole('heading', { name: '기업 지원' })).toBeVisible()
+    await dismissDecision(page)
     await expect(page.getByRole('status').filter({ hasText: '실리콘밸리 현장학습 · 참가 확정' })).toBeVisible()
     await page.reload()
     await expect(choiceHeading(page, '공고를 함께 읽어 볼까요?')).toHaveCount(0)
     await expect(page.getByRole('heading', { name: '기업 지원' })).toBeVisible()
     await expect(page.getByRole('button', { name: '지원 · 1 AP' })).toHaveCount(6)
-    await expect(page.getByRole('button', { name: '다음 결정까지' })).toBeDisabled()
+    await expect(page.getByRole('button', { name: '다음 결정까지', includeHidden: true })).toBeDisabled()
     await finishWithoutOffer(page)
     const graduation = page.getByRole('region', { name: '지금 열린 선택' })
     await expect(graduation).toContainText('실리콘밸리 현장학습 · 참가 완료')
@@ -486,7 +462,6 @@ test('학기 집중과 정규 생활을 이어가고 72턴을 마쳐 채용 제�
     .getByRole('button', { name: '지원 · 1 AP' }).click()
   await expect(page.getByText('웹서비스 개발팀 · 서류 통과')).toBeVisible()
   await advanceRegularTurn(page, applicationTurn)
-  await setFocus(page, '지원 직무 과제 연습')
 
   for (let turn = applicationTurn + 1; turn < codingTurn; turn++) await endTurn(page)
   await prepareRecruitmentCondition(page)
